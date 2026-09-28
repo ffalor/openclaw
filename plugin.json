@@ -1,0 +1,12 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "author": {
+    "name": "ffalor"
+  },
+  "description": "Personal OpenClaw skill bundle — currently ships clawarr-suite (unified *arr media-stack control). Add future skills under skills/.",
+  "homepage": "https://github.com/ffalor/openclaw",
+  "license": "MIT",
+  "name": "ffalor-plugins",
+  "repository": "https://github.com/ffalor/openclaw",
+  "version": "1.0.0"
+}

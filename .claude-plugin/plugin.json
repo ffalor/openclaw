@@ -1,0 +1,8 @@
+{
+  "author": {
+    "name": "ffalor"
+  },
+  "description": "Personal OpenClaw skill bundle — currently ships clawarr-suite (unified *arr media-stack control). Add future skills under skills/.",
+  "name": "ffalor-plugins",
+  "version": "1.0.0"
+}
