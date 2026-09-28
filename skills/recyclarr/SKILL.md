@@ -1,8 +1,7 @@
 ---
 name: recyclarr
 description: Sync TRaSH Guides quality profiles to Sonarr and Radarr via recyclarr.sh.
-metadata:
-  {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["RECYCLARR_SSH"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["RECYCLARR_SSH"]}}}
 ---
 
 # Recyclarr
@@ -48,3 +47,7 @@ recyclarr.sh logs [count]         # View recent logs
 3. `recyclarr.yml` present (`DOCKER_CONFIG_BASE/recyclarr/` when remote)
 4. Sonarr/Radarr URLs and API keys set in `recyclarr.yml`
 5. `recyclarr.sh status` reports the container running
+
+## Destructive actions
+
+`recyclarr.sh sync` overwrites Sonarr/Radarr quality profiles and custom formats with TRaSH Guides values (and downloads them from `raw.githubusercontent.com`). Preview first and sync only on explicit user request.

@@ -1,11 +1,7 @@
 ---
 name: notifiarr
 description: Unified Notifiarr notifications — status, connected services, test alerts, and recent logs.
-metadata:
-  openclaw:
-    requires:
-      bins: ["bash", "curl", "jq"]
-      env: ["CLAWARR_HOST"]
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST"]}}}
 ---
 
 # Notifiarr

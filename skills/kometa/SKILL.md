@@ -1,8 +1,7 @@
 ---
 name: kometa
 description: Plex collection, overlay, and metadata automation via kometa.sh and Kometa defaults.
-metadata:
-  {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["KOMETA_SSH"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["KOMETA_SSH"]}}}
 ---
 
 # Kometa
@@ -47,3 +46,7 @@ kometa.sh logs [count]            # View recent logs
 3. `config.yml` present (`DOCKER_CONFIG_BASE/kometa/` when remote)
 4. Plex URL and token set in `config.yml` (plus `PLEX_TOKEN` here if needed)
 5. `kometa.sh status` reports the container and last run
+
+## Destructive actions
+
+`kometa.sh run` rewrites Plex collections, overlays, and metadata. Run it only on explicit user request.

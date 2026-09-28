@@ -1,8 +1,7 @@
 ---
 name: readarr
 description: Manage your Readarr ebook library — search authors and books, add titles, monitor queue via API.
-metadata:
-  {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "READARR_KEY"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "READARR_KEY"]}}}
 ---
 
 # Readarr
@@ -29,14 +28,10 @@ Readarr API: `http://$CLAWARR_HOST:8787/api/v1` (or `$READARR_PORT` override), a
 ## Library analytics (`scripts/library.sh`)
 
 ```bash
-scripts/library.sh stats readarr       # Overall library stats
-scripts/library.sh quality readarr     # Quality profile breakdown
-scripts/library.sh missing readarr     # Missing/wanted books
-scripts/library.sh unmonitored readarr # Unmonitored authors
-scripts/library.sh recent readarr [d]  # Recently added (default: 7 days)
-scripts/library.sh nofiles readarr     # Monitored but no files
-scripts/library.sh disk readarr        # Disk usage by root folder
+scripts/library.sh stats readarr       # author/book counts
 ```
+
+Only `stats` has a Readarr branch in the upstream script; every other `library.sh` subcommand is Radarr/Sonarr(/Lidarr)-only and prints an empty report for `readarr`. For missing, recent, unmonitored, quality, or disk data use the API workflows below (`GET /wanted/missing`, `GET /book`, `GET /author`, `GET /rootfolder`; see `references/api-endpoints.md`).
 
 ## API Workflows
 

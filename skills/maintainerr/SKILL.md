@@ -1,8 +1,7 @@
 ---
 name: maintainerr
 description: Rule-based Plex library cleanup management (rules, collections, runs) via maintainerr.sh.
-metadata:
-  {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST"]}}}
 ---
 
 # Maintainerr
@@ -45,3 +44,7 @@ maintainerr.sh logs               # View activity log
 3. Web UI at `http://<host>:6246` loads
 4. At least one rule exists (`maintainerr.sh rules` non-empty)
 5. Maintainerr is linked to Plex (and Sonarr/Radarr for deletion)
+
+## Destructive actions
+
+`maintainerr.sh run` executes cleanup rules, which can delete media from Plex/*arr libraries. Never run it automatically — show `rules`/matched media first and run only on explicit user request.

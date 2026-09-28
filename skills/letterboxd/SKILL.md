@@ -1,17 +1,7 @@
 ---
 name: letterboxd
 description: "Bridge Letterboxd diary via CSV export/import, convert Trakt history to Letterboxd format, and read public profiles."
-metadata:
-  {
-    "openclaw":
-      {
-        "requires":
-          {
-            "bins": ["bash", "curl", "jq"],
-            "env": []
-          }
-      }
-  }
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": []}}}
 ---
 
 # Letterboxd

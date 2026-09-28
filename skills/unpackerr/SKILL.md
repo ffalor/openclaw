@@ -1,8 +1,7 @@
 ---
 name: unpackerr
 description: Monitor Unpackerr archive extraction for *arr download queues via unpackerr.sh.
-metadata:
-  {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["UNPACKERR_SSH"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["UNPACKERR_SSH"]}}}
 ---
 
 # Unpackerr
@@ -45,3 +44,7 @@ unpackerr.sh restart              # Restart container
 3. `UN_SONARR_*` / `UN_RADARR_*` env vars set on the container
 4. Download paths in container config match the *arr apps
 5. `unpackerr.sh status` reports the container running
+
+## Destructive actions
+
+`unpackerr.sh restart` restarts the container. Run it only on explicit user request.

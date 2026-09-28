@@ -1,17 +1,7 @@
 ---
 name: simkl
 description: "Track movies, shows, and anime on Simkl: OAuth auth, watch history, watchlists, stats, and Plex sync."
-metadata:
-  {
-    "openclaw":
-      {
-        "requires":
-          {
-            "bins": ["bash", "curl", "jq"],
-            "env": ["SIMKL_CLIENT_ID", "SIMKL_CLIENT_SECRET"]
-          }
-      }
-  }
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["SIMKL_CLIENT_ID", "SIMKL_CLIENT_SECRET"]}}}
 ---
 
 # Simkl

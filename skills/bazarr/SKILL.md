@@ -1,11 +1,7 @@
 ---
 name: bazarr
 description: Manage Bazarr subtitles — find missing subtitles, browse history, and trigger searches.
-metadata:
-  openclaw:
-    requires:
-      bins: ["bash", "curl", "jq"]
-      env: ["CLAWARR_HOST", "BAZARR_KEY"]
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "BAZARR_KEY"]}}}
 ---
 
 # Bazarr

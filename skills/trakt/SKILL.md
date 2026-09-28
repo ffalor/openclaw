@@ -1,17 +1,7 @@
 ---
 name: trakt
 description: "Sync Trakt.tv watch history, scrobble playback, manage watchlists and ratings, bridge Plex history, and automate Traktarr lists."
-metadata:
-  {
-    "openclaw":
-      {
-        "requires":
-          {
-            "bins": ["bash", "curl", "jq"],
-            "env": ["TRAKT_CLIENT_ID", "TRAKT_CLIENT_SECRET"]
-          }
-      }
-  }
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["TRAKT_CLIENT_ID", "TRAKT_CLIENT_SECRET"]}}}
 ---
 
 # Trakt
@@ -116,14 +106,14 @@ See `references/traktarr-retraktarr.md` for complete setup, config reference, cr
 
 ## Unified Multi-Tracker Interface
 
-`scripts/trackers.sh` provides a unified wrapper (`setup`, `status`, `sync`, `export`, `import`, `compare`, `profile`). It calls the sibling `scripts/trakt.sh` in this skill. Commands that target other trackers (`simkl.sh`, `letterboxd.sh`) degrade with a clear "not found" error — install the **simkl** and **letterboxd** skills for cross-tracker `sync`, `export`, `import`, and `compare` commands.
+`scripts/trackers.sh` provides a unified wrapper (`setup`, `status`, `sync`, `export`, `import`, `compare`, `profile`). It calls the sibling `scripts/trakt.sh`, `scripts/simkl.sh`, and `scripts/letterboxd.sh` (verbatim copies of the simkl/letterboxd skills' scripts, bundled so cross-tracker commands work). Simkl commands still need `SIMKL_CLIENT_ID`/`SIMKL_CLIENT_SECRET` set.
 
 ```bash
 scripts/trackers.sh setup              # Interactive setup wizard (includes Traktarr/Retraktarr options)
 scripts/trackers.sh status             # Show configured trackers
 scripts/trackers.sh sync plex trakt    # Sync Plex → Trakt
 scripts/trackers.sh export trakt json  # Export watch history
-scripts/trackers.sh compare trakt simkl  # Requires the simkl skill
+scripts/trackers.sh compare trakt simkl  # Requires SIMKL_* keys
 ```
 
 ## Reference Documentation

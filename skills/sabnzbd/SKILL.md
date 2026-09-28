@@ -1,11 +1,7 @@
 ---
 name: sabnzbd
 description: Monitor and control SABnzbd downloads — queue status, speed, history, pause and resume.
-metadata:
-  openclaw:
-    requires:
-      bins: ["bash", "curl", "jq"]
-      env: ["CLAWARR_HOST", "SABNZBD_KEY"]
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "SABNZBD_KEY"]}}}
 ---
 
 # SABnzbd

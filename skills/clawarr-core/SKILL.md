@@ -1,17 +1,7 @@
 ---
 name: clawarr-core
 description: "Bootstrap a self-hosted media stack: guided setup, API key discovery, service health checks, troubleshooting, and dashboard generation."
-metadata:
-  {
-    "openclaw":
-      {
-        "requires":
-          {
-            "bins": ["bash", "curl", "jq"],
-            "env": ["CLAWARR_HOST"]
-          }
-      }
-  }
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST"]}}}
 ---
 
 # ClawARR Core
@@ -166,6 +156,13 @@ Common causes for stuck imports: stale Docker mounts (restart containers), downl
 - **`references/common-issues.md`** — Troubleshooting guide with solutions.
 - **`references/dashboard-templates.md`** — HTML/CSS templates for dashboards.
 - **`references/prompts.md`** — Suggested natural-language prompts.
+
+`references/prompts.md` and `references/setup-guide.md` are verbatim upstream and mention service scripts (`library.sh`, `analytics.sh`, `downloads.sh`, `requests.sh`, `manage.sh`, `queue.sh`, `search.sh`, `subtitles.sh`, `indexers.sh`) that are **not** in this skill — they live in the matching service skill (sonarr, radarr, plex/tautulli, sabnzbd, overseerr, bazarr, prowlarr). This skill only ships `setup.sh`, `discover.sh`, `status.sh`, `diagnose.sh`, and `dashboard.sh`.
+
+## Security & compatibility notes
+
+- All API calls target the user-provided `CLAWARR_HOST` (typically LAN/NAS); keys come from env vars, nothing is embedded or sent to third parties.
+- Scripts are Bash 3.2 compatible (macOS default bash) and need only `bash`, `curl`, `jq`.
 
 ## Example Prompts
 

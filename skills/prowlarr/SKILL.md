@@ -1,11 +1,7 @@
 ---
 name: prowlarr
 description: Centralized Prowlarr indexer management — list, test, search indexers and sync them to Sonarr/Radarr.
-metadata:
-  openclaw:
-    requires:
-      bins: ["bash", "curl", "jq"]
-      env: ["CLAWARR_HOST", "PROWLARR_KEY"]
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "PROWLARR_KEY"]}}}
 ---
 
 # Prowlarr
@@ -99,3 +95,7 @@ Connectivity checklist:
 
 - `references/api-endpoints.md` — Prowlarr API v1 reference
 - `references/companion-services.md` — Sync targets, search categories, FlareSolverr setup
+
+## Destructive actions
+
+Adding apps or triggering an indexer sync pushes indexer config into Sonarr/Radarr. Act only on explicit user request.

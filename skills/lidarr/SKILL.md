@@ -1,8 +1,7 @@
 ---
 name: lidarr
 description: Manage your Lidarr music library — search artists, inspect stats and missing albums.
-metadata:
-  {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "LIDARR_KEY"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "LIDARR_KEY"]}}}
 ---
 
 # Lidarr
@@ -42,16 +41,11 @@ Looks up `GET /search?term=` on Lidarr and prints artist, album title, album typ
 ### `scripts/library.sh` — Library exploration (app = `lidarr`)
 
 ```bash
-scripts/library.sh stats lidarr
-scripts/library.sh quality lidarr      # quality-profile breakdown
-scripts/library.sh missing lidarr      # monitored albums with no files
-scripts/library.sh unmonitored lidarr
-scripts/library.sh recent lidarr [days]  # recently added (default: 7)
-scripts/library.sh genres lidarr
-scripts/library.sh years lidarr
-scripts/library.sh nofiles lidarr      # monitored but no files
+scripts/library.sh stats lidarr        # artist/album/track counts
 scripts/library.sh disk lidarr         # disk usage by root folder
 ```
+
+Only `stats` and `disk` have Lidarr branches in the upstream script. `quality`, `missing`, `unmonitored`, `recent`, `genres`, `years`, and `nofiles` are Radarr/Sonarr-only and print an empty report for `lidarr` — use the API directly instead (e.g. `GET /wanted/missing`, `GET /artist` filtered with jq; see `references/api-endpoints.md`).
 
 Note: there is no `manage.sh` for Lidarr in this skill — add artists directly via `POST /artist` (see `references/api-endpoints.md`), and remove entries only on explicit user request.
 

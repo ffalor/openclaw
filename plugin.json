@@ -3,10 +3,10 @@
   "author": {
     "name": "ffalor"
   },
-  "description": "Personal OpenClaw skill bundle — currently ships clawarr-suite (unified *arr media-stack control). Add future skills under skills/.",
+  "description": "Personal OpenClaw skill bundle — ClawARR media-stack skills (core + one skill per service: Sonarr, Radarr, Lidarr, Readarr, Prowlarr, Plex, Tautulli, SABnzbd, Overseerr, Bazarr, Trakt, and more). Add future skills under skills/.",
   "homepage": "https://github.com/ffalor/openclaw",
   "license": "MIT",
   "name": "ffalor-plugins",
   "repository": "https://github.com/ffalor/openclaw",
-  "version": "1.1.0"
+  "version": "1.2.0"
 }

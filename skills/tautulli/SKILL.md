@@ -1,8 +1,7 @@
 ---
 name: tautulli
 description: Plex viewing analytics (activity, history, top content, user stats) via analytics.sh and Tautulli API.
-metadata:
-  {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "TAUTULLI_KEY"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "TAUTULLI_KEY"]}}}
 ---
 
 # Tautulli

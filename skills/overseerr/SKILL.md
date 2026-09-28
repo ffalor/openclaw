@@ -1,11 +1,7 @@
 ---
 name: overseerr
 description: Manage Overseerr media requests — list, approve, deny, and inspect pending movie/TV requests.
-metadata:
-  openclaw:
-    requires:
-      bins: ["bash", "curl", "jq"]
-      env: ["CLAWARR_HOST", "OVERSEERR_KEY"]
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "OVERSEERR_KEY"]}}}
 ---
 
 # Overseerr
@@ -81,3 +77,7 @@ Connectivity checklist:
 ## References
 
 - `references/api-endpoints.md` — Overseerr API v1 reference (requests, search, media, users, issues, webhooks)
+
+## Destructive actions
+
+Approving or denying a request changes what gets downloaded and notifies the requester. Act only on explicit user request.

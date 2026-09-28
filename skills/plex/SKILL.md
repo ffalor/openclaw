@@ -1,8 +1,7 @@
 ---
 name: plex
 description: Plex library stats and recently-added reporting via analytics.sh with PLEX_TOKEN auth.
-metadata:
-  {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "PLEX_TOKEN"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "PLEX_TOKEN"]}}}
 ---
 
 # Plex

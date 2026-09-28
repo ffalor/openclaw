@@ -1,8 +1,7 @@
 ---
 name: sonarr
 description: Manage your Sonarr TV library — search and add series, monitor queue, inspect stats and missing episodes.
-metadata:
-  {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "SONARR_KEY"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "SONARR_KEY"]}}}
 ---
 
 # Sonarr

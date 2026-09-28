@@ -1,8 +1,7 @@
 ---
 name: radarr
 description: Manage your Radarr movie library — search and add films, monitor queue, inspect stats and missing movies.
-metadata:
-  {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "RADARR_KEY"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "RADARR_KEY"]}}}
 ---
 
 # Radarr
