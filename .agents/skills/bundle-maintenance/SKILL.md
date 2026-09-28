@@ -2,13 +2,16 @@
 name: bundle-maintenance
 description: >
   Maintain this Agent Plugins bundle repo (ffalor/openclaw). Use when adding a
-  skill under skills/, editing plugin.json, or
+  skill under plugins/ffalor-plugins/skills/, editing plugin.json or
+  .claude-plugin/marketplace.json, or
   verifying bundle layout conformance before commit.
 ---
 
 # Bundle maintenance
 
-This repo is an [Agent Plugins 1.0.0](https://agent-plugins.org) bundle.
+This repo is a marketplace (`.claude-plugin/marketplace.json` at the root)
+whose one plugin, `plugins/ffalor-plugins/`, is an
+[Agent Plugins 1.0.0](https://agent-plugins.org) bundle.
 It intentionally ships **no** `openclaw.plugin.json`, so clients load it as a
 content-only bundle (skills + MCP config, no in-process runtime).
 
@@ -26,7 +29,7 @@ Before changing manifests or layout, read the spec:
 
 ## Rules that have bitten before
 
-1. **Root `plugin.json` is closed.** Only `$schema`, `name`, `version`,
+1. **The bundle's `plugin.json` is closed.** Only `$schema`, `name`, `version`,
    `description`, `author`, `homepage`, `repository`, `license`, `keywords`,
    `extensions`. Unknown top-level field = warn + ignore; any other schema
    violation (including missing `$schema` or `name`) = client MUST reject the
@@ -49,16 +52,20 @@ Before changing manifests or layout, read the spec:
    `args`/`env`/`cwd` only; never put secrets in `env`/`headers`.
 8. **Never add `openclaw.plugin.json`.** OpenClaw checks native manifest
    first — its presence flips detection from bundle to native plugin.
-9. **Single manifest.** Root `plugin.json` is the only manifest — no
-   `openclaw.plugin.json` (flips OpenClaw detection to native), no
-   `.claude-plugin/` (would win detection as Claude format instead of Agent
-   Plugins). Bump `version` in `plugin.json` on change. Client-specific
-   knobs belong under root `extensions.<reverse-domain>`, never as new
-   top-level fields.
+9. **Single bundle manifest.** Inside `plugins/ffalor-plugins/`,
+   `plugin.json` is the only manifest — no `openclaw.plugin.json` or
+   `package.json` with `openclaw.extensions` (flip detection to native), no
+   `.claude-plugin/` (would win detection as Claude format). The root
+   `.claude-plugin/` holds only `marketplace.json`. Bump `version` in the
+   bundle `plugin.json` **and** its marketplace entry together. Client-specific
+   knobs belong under `extensions.<reverse-domain>`, never as new top-level
+   fields.
+10. **Marketplace sources are relative paths only** (`./plugins/<name>`);
+    remote marketplaces reject git/GitHub/HTTP/absolute sources.
 
 ## Adding a skill
 
-1. Copy in: `skills/<name>/SKILL.md` + helpers alongside (`scripts/`, `references/`).
+1. Copy in: `plugins/ffalor-plugins/skills/<name>/SKILL.md` + helpers alongside (`scripts/`, `references/`).
 2. Confirm `SKILL.md` frontmatter has `name:` (= dir name) and `description:`.
 3. Confirm all relative refs resolve inside `skills/<name>/`.
 4. Run validation below, bump both manifest versions, commit.
@@ -70,24 +77,30 @@ export D="$(git rev-parse --show-toplevel)"
 python3 - <<'EOF'
 import json, re, os
 D = os.environ.get("D", ".")
-m = json.load(open(f"{D}/plugin.json"))
+B = f"{D}/plugins/ffalor-plugins"
+m = json.load(open(f"{B}/plugin.json"))
+mk = json.load(open(f"{D}/.claude-plugin/marketplace.json"))
+e = next(p for p in mk["plugins"] if p["name"] == m["name"])
+assert e["source"] == "./plugins/ffalor-plugins" and e.get("version") == m["version"], "marketplace entry out of sync"
+assert not os.path.exists(f"{B}/package.json") and not os.path.exists(f"{B}/openclaw.plugin.json")
 allowed = {"$schema","name","version","description","author","homepage","repository","license","keywords","extensions"}
 assert set(m) <= allowed, f"unknown fields: {set(m)-allowed}"
 assert m["$schema"] == "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
 assert re.fullmatch(r'[a-z0-9]+(?:[.-][a-z0-9]+)*', m["name"]) and len(m["name"]) <= 64
 assert set(m.get("author", {})) <= {"name","email","url"}
-for d in os.listdir(f"{D}/skills"):
-    p = f"{D}/skills/{d}/SKILL.md"
+for d in os.listdir(f"{B}/skills"):
+    p = f"{B}/skills/{d}/SKILL.md"
     assert os.path.isfile(p), f"skills/{d} has no SKILL.md"
 print("manifest + discovery OK:", m["name"], m["version"])
 EOF
-for f in skills/*/scripts/*.sh; do bash -n "$f" || exit 1; done && echo "scripts OK"
+for f in plugins/ffalor-plugins/skills/*/scripts/*.sh; do bash -n "$f" || exit 1; done && echo "scripts OK"
 git status --short
 ```
 
 Then install-test on a machine with the OpenClaw CLI:
 
 ```bash
-openclaw plugins install -l <repo-path>
+openclaw plugins install -l <repo-path>/plugins/ffalor-plugins
+openclaw plugins marketplace list <repo-path>   # marketplace sees ffalor-plugins
 openclaw plugins inspect ffalor-plugins   # expect Format: bundle, Bundle format: agent
 ```
