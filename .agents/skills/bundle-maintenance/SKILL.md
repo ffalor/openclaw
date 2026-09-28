@@ -2,7 +2,7 @@
 name: bundle-maintenance
 description: >
   Maintain this Agent Plugins bundle repo (ffalor/openclaw). Use when adding a
-  skill under skills/, editing plugin.json or .claude-plugin/plugin.json, or
+  skill under skills/, editing plugin.json, or
   verifying bundle layout conformance before commit.
 ---
 
@@ -49,11 +49,12 @@ Before changing manifests or layout, read the spec:
    `args`/`env`/`cwd` only; never put secrets in `env`/`headers`.
 8. **Never add `openclaw.plugin.json`.** OpenClaw checks native manifest
    first — its presence flips detection from bundle to native plugin.
-9. **Dual-manifest setup:** `.claude-plugin/plugin.json` (Claude bundle,
-   wins OpenClaw detection) + root `plugin.json` (Agent Plugins portable
-   core) describe the same `skills/` dir. Bump `version` in both on change.
-   Client-specific knobs belong under root `extensions.<reverse-domain>`,
-   never as new top-level fields.
+9. **Single manifest.** Root `plugin.json` is the only manifest — no
+   `openclaw.plugin.json` (flips OpenClaw detection to native), no
+   `.claude-plugin/` (would win detection as Claude format instead of Agent
+   Plugins). Bump `version` in `plugin.json` on change. Client-specific
+   knobs belong under root `extensions.<reverse-domain>`, never as new
+   top-level fields.
 
 ## Adding a skill
 
@@ -88,5 +89,5 @@ Then install-test on a machine with the OpenClaw CLI:
 
 ```bash
 openclaw plugins install -l <repo-path>
-openclaw plugins inspect ffalor-plugins   # expect Format: bundle
+openclaw plugins inspect ffalor-plugins   # expect Format: bundle, Bundle format: agent
 ```

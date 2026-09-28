@@ -12,8 +12,7 @@ as one bundle; each directory under `skills/` loads as an individual skill.
 ## Layout
 
 ```text
-.claude-plugin/plugin.json   # Claude bundle manifest (detection: claude format wins)
-plugin.json                  # Agent Plugins bundle manifest (vendor-neutral fallback)
+plugin.json                  # Agent Plugins bundle manifest (single source of truth)
 skills/<name>/SKILL.md       # one skill per directory; SKILL.md required
 skills/<name>/scripts/       # skill helper scripts (kept next to SKILL.md so relative refs hold)
 skills/<name>/references/    # skill reference docs
@@ -23,11 +22,12 @@ mcp.json                     # only when something needs MCP servers (absent = f
 ```
 
 Why this shape: bundle detection checks `openclaw.plugin.json` (native) first,
-then `.claude-plugin/`, then root `plugin.json`, then manifestless `skills/`.
-This repo deliberately ships **no** `openclaw.plugin.json`, so it installs as a
-content-only bundle (no in-process runtime, narrower trust boundary). The two
-manifests describe the same `skills/` dir — Claude detection wins when both are
-present, Agent Plugins clients use the root one.
+then client markers, then root `plugin.json` — which is what this repo ships,
+so OpenClaw installs it as an Agent Plugins bundle (`Format: bundle`,
+`Bundle format: agent`). This repo deliberately ships **no**
+`openclaw.plugin.json` and **no** `.claude-plugin/`, so there is exactly one
+manifest and no competing detection path. The bundle stays content-only
+(no in-process runtime, narrower trust boundary).
 
 `SKILL.md`, `scripts/`, and `references/` are verbatim copies of the upstream
 skill; internal `scripts/...` / `references/...` paths keep working because the
@@ -49,7 +49,7 @@ openclaw plugins install -l ./openclaw   # link instead of copy, for live editin
 
 # Verify
 openclaw plugins list
-openclaw plugins inspect ffalor-plugins   # expect Format: bundle
+openclaw plugins inspect ffalor-plugins   # expect Format: bundle, Bundle format: agent
 ```
 
 Mapped features are available in the next session (no Gateway restart needed
@@ -79,7 +79,7 @@ Per-skill enablement (bundle installed, but only some skills active):
 1. Copy the skill dir in: `skills/<name>/SKILL.md` (+ helpers alongside it).
 2. Keep every helper/reference the skill mentions **inside** `skills/<name>/`
    (bundle skill roots must stay inside the plugin root — boundary-checked).
-3. Bump `version` in both manifests, commit, then `openclaw plugins update ffalor-plugins`.
+3. Bump `version` in `plugin.json`, commit, then `openclaw plugins update ffalor-plugins`.
 
 ## Repo maintenance
 
