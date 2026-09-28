@@ -7,6 +7,7 @@ set -euo pipefail
 
 # Accept args or use environment variables
 HOST="${1:-${CLAWARR_HOST:-}}"
+CLAWARR_SCHEME="${CLAWARR_SCHEME:-http}"
 SONARR_KEY="${2:-${SONARR_KEY:-}}"
 RADARR_KEY="${3:-${RADARR_KEY:-}}"
 LIDARR_KEY="${4:-${LIDARR_KEY:-}}"
@@ -16,6 +17,16 @@ BAZARR_KEY="${7:-${BAZARR_KEY:-}}"
 OVERSEERR_KEY="${8:-${OVERSEERR_KEY:-}}"
 PLEX_TOKEN="${9:-${PLEX_TOKEN:-}}"
 TAUTULLI_KEY="${10:-${TAUTULLI_KEY:-}}"
+SONARR_PORT="${SONARR_PORT:-8989}"
+RADARR_PORT="${RADARR_PORT:-7878}"
+READARR_PORT="${READARR_PORT:-8787}"
+PROWLARR_PORT="${PROWLARR_PORT:-9696}"
+OVERSEERR_PORT="${OVERSEERR_PORT:-5055}"
+SABNZBD_PORT="${SABNZBD_PORT:-8081}"
+TAUTULLI_PORT="${TAUTULLI_PORT:-8181}"
+PLEX_HOST="${PLEX_HOST:-$HOST}"
+PLEX_SCHEME="${PLEX_SCHEME:-http}"
+PLEX_PORT="${PLEX_PORT:-32400}"
 
 if [[ -z "$HOST" ]]; then
   echo "Usage: $0 <host> [sonarr_key] [radarr_key] ..."
@@ -44,16 +55,20 @@ check_service() {
   local api_key=$3
   local api_path=$4
   local key_header=${5:-X-Api-Key}
+  local scheme="$CLAWARR_SCHEME"
+
+  # Keep out-of-scope legacy checks on their original HTTP endpoint.
+  [[ "$name" == "Lidarr" || "$name" == "Bazarr" ]] && scheme=http
   
   if [[ -z "$api_key" ]]; then
     echo "⚠️  $name - No API key provided (skipping)"
     return
   fi
   
-  local url="http://${HOST}:${port}${api_path}"
+  local url="${scheme}://${HOST}:${port}${api_path}"
   local response
   
-  if ! response=$(curl -sf -H "${key_header}: ${api_key}" "$url" 2>&1); then
+  if ! response=$(curl -fsS --connect-timeout 3 --max-time 10 -H "${key_header}: ${api_key}" "$url" 2>/dev/null); then
     echo "❌ $name - Connection failed"
     return
   fi
@@ -75,16 +90,16 @@ check_service() {
 }
 
 # Check each service
-[[ -n "$SONARR_KEY" ]] && check_service "Sonarr" 8989 "$SONARR_KEY" "/api/v3/health"
-[[ -n "$RADARR_KEY" ]] && check_service "Radarr" 7878 "$RADARR_KEY" "/api/v3/health"
+[[ -n "$SONARR_KEY" ]] && check_service "Sonarr" "$SONARR_PORT" "$SONARR_KEY" "/api/v3/health"
+[[ -n "$RADARR_KEY" ]] && check_service "Radarr" "$RADARR_PORT" "$RADARR_KEY" "/api/v3/health"
 [[ -n "$LIDARR_KEY" ]] && check_service "Lidarr" 8686 "$LIDARR_KEY" "/api/v1/health"
-[[ -n "$READARR_KEY" ]] && check_service "Readarr" 8787 "$READARR_KEY" "/api/v1/health"
-[[ -n "$PROWLARR_KEY" ]] && check_service "Prowlarr" 9696 "$PROWLARR_KEY" "/api/v1/health"
+[[ -n "$READARR_KEY" ]] && check_service "Readarr" "$READARR_PORT" "$READARR_KEY" "/api/v1/health"
+[[ -n "$PROWLARR_KEY" ]] && check_service "Prowlarr" "$PROWLARR_PORT" "$PROWLARR_KEY" "/api/v1/health"
 [[ -n "$BAZARR_KEY" ]] && check_service "Bazarr" 6767 "$BAZARR_KEY" "/api/system/health"
 
 # Overseerr uses different header
 if [[ -n "$OVERSEERR_KEY" ]]; then
-  if response=$(curl -sf -H "X-Api-Key: ${OVERSEERR_KEY}" "http://${HOST}:5055/api/v1/status" 2>&1); then
+  if response=$(curl -fsS --connect-timeout 3 --max-time 10 -H "X-Api-Key: ${OVERSEERR_KEY}" "${CLAWARR_SCHEME}://${HOST}:${OVERSEERR_PORT}/api/v1/status" 2>/dev/null); then
     echo "✅ Overseerr - Running"
   else
     echo "❌ Overseerr - Connection failed"
@@ -93,7 +108,7 @@ fi
 
 # Plex uses token
 if [[ -n "$PLEX_TOKEN" ]]; then
-  if curl -sf -H "X-Plex-Token: ${PLEX_TOKEN}" "http://${HOST}:32400/identity" &>/dev/null; then
+  if curl -fsS --connect-timeout 3 --max-time 10 -H "X-Plex-Token: ${PLEX_TOKEN}" "${PLEX_SCHEME}://${PLEX_HOST}:${PLEX_PORT}/identity" &>/dev/null; then
     echo "✅ Plex - Running"
   else
     echo "❌ Plex - Connection failed"
@@ -102,7 +117,7 @@ fi
 
 # Tautulli
 if [[ -n "$TAUTULLI_KEY" ]]; then
-  if response=$(curl -sf "http://${HOST}:8181/api/v2?apikey=${TAUTULLI_KEY}&cmd=status" 2>&1); then
+  if response=$(curl -fsS --connect-timeout 3 --max-time 10 "${CLAWARR_SCHEME}://${HOST}:${TAUTULLI_PORT}/api/v2?apikey=${TAUTULLI_KEY}&cmd=status" 2>/dev/null); then
     echo "✅ Tautulli - Running"
   else
     echo "❌ Tautulli - Connection failed"
@@ -112,7 +127,7 @@ fi
 # SABnzbd
 SABNZBD_KEY="${SABNZBD_KEY:-}"
 if [[ -n "$SABNZBD_KEY" ]]; then
-  if curl -sf "http://${HOST}:${SABNZBD_PORT:-38080}/api?mode=version&apikey=${SABNZBD_KEY}" &>/dev/null; then
+  if curl -fsS --connect-timeout 3 --max-time 10 "${CLAWARR_SCHEME}://${HOST}:${SABNZBD_PORT}/api?mode=version&apikey=${SABNZBD_KEY}" &>/dev/null; then
     echo "✅ SABnzbd - Running"
   else
     echo "❌ SABnzbd - Connection failed"

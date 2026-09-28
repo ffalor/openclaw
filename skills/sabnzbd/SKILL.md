@@ -23,12 +23,12 @@ Required binaries: `bash`, `curl`, `jq`.
 |----------|----------|---------|
 | `CLAWARR_HOST` | Yes | Host IP/hostname of the SABnzbd instance |
 | `SABNZBD_KEY` | Yes | SABnzbd API key (Config → General → Security → API Key) |
-| `SABNZBD_PORT` | No | SABnzbd HTTP port (default: `38080`) |
+| `SABNZBD_PORT` | No | SABnzbd HTTP port (default: `8081`) |
 
 ```bash
 export CLAWARR_HOST=192.168.1.100
 export SABNZBD_KEY=abc890...
-# export SABNZBD_PORT=38080  # only if non-default
+# export SABNZBD_PORT=8081  # only if non-default
 ```
 
 ## Scripts

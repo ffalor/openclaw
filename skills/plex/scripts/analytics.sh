@@ -6,7 +6,7 @@
 #   activity                    - Currently watching / active streams
 #   history [count]             - Watch history (default: 20)
 #   most-watched [period]       - Most watched content (week/month/year, default: month)
-#   popular-genres [period]     - Most popular genres
+#   popular-genres              - Most common genres in the latest 100 history records
 #   peak-hours                  - Peak watching hours breakdown
 #   user-stats [user]           - User activity summary (default: all)
 #   library-stats               - Plex library section statistics
@@ -16,6 +16,7 @@
 set -euo pipefail
 
 HOST="${CLAWARR_HOST:-}"
+CLAWARR_SCHEME="${CLAWARR_SCHEME:-http}"
 TAUTULLI_KEY="${TAUTULLI_KEY:-}"
 TAUTULLI_PORT="${TAUTULLI_PORT:-8181}"
 PLEX_TOKEN="${PLEX_TOKEN:-}"
@@ -45,16 +46,16 @@ tautulli_api() {
   local params="$*"
   
   if [[ -z "$TAUTULLI_KEY" ]]; then
-    echo "❌ TAUTULLI_KEY not set"
-    return 1
+    printf '{}'
+    return 0
   fi
   
-  local url="http://${HOST}:${TAUTULLI_PORT}/api/v2?apikey=${TAUTULLI_KEY}&cmd=${cmd}"
+  local url="${CLAWARR_SCHEME}://${HOST}:${TAUTULLI_PORT}/api/v2?apikey=${TAUTULLI_KEY}&cmd=${cmd}"
   if [[ -n "$params" ]]; then
     url="${url}&${params}"
   fi
   
-  curl -sf "$url"
+  curl -fsS --connect-timeout 3 --max-time 20 "$url" 2>/dev/null || printf '{}'
 }
 
 # Helper: call Plex API
@@ -62,12 +63,12 @@ plex_api() {
   local endpoint=$1
   
   if [[ -z "$PLEX_TOKEN" ]]; then
-    echo "❌ PLEX_TOKEN not set"
-    return 1
+    printf '{}'
+    return 0
   fi
   
-  curl -sf -H "X-Plex-Token: ${PLEX_TOKEN}" -H "Accept: application/json" \
-    "${PLEX_SCHEME}://${PLEX_HOST}:${PLEX_PORT}${endpoint}"
+  curl -fsS --connect-timeout 3 --max-time 20 -H "X-Plex-Token: ${PLEX_TOKEN}" -H "Accept: application/json" \
+    "${PLEX_SCHEME}://${PLEX_HOST}:${PLEX_PORT}${endpoint}" 2>/dev/null || printf '{}'
 }
 
 # Command: activity (current streams)
@@ -97,6 +98,9 @@ cmd_activity() {
 # Command: history
 cmd_history() {
   local count="${1:-20}"
+
+  [[ "$count" =~ ^[0-9]+$ ]] || count=20
+  (( count > 100 )) && count=100
   
   echo "📜 Watch History (Last $count)"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -145,21 +149,12 @@ cmd_most_watched() {
 
 # Command: popular genres
 cmd_popular_genres() {
-  local period="${1:-month}"
-  local time_range=30
-  
-  case "$period" in
-    week)  time_range=7 ;;
-    month) time_range=30 ;;
-    year)  time_range=365 ;;
-  esac
-  
-  echo "🎭 Most Popular Genres (Last $period)"
+  echo "🎭 Most Common Genres (Latest 100 History Records)"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
   # Get history and extract genres
   local data
-  data=$(tautulli_api "get_history" "length=200")
+  data=$(tautulli_api "get_history" "length=100")
   
   echo "$data" | jq -r '.response.data.data[] | .genres' | \
     tr '|' '\n' | sort | uniq -c | sort -rn | head -15 | \
@@ -225,15 +220,9 @@ cmd_library_stats() {
   echo "📚 Plex Library Statistics"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
-  if [[ -z "$PLEX_TOKEN" ]]; then
-    echo "❌ PLEX_TOKEN not set"
-    return 1
-  fi
-  
   local sections
   sections=$(plex_api "/library/sections")
-  
-  echo "$sections" | jq -r '.MediaContainer.Directory[] | "\(.title):\n  Type: \(.type)\n  Items: \(if .Location then .Location[0].id else "N/A" end)\n"'
+  echo "$sections" | jq -r '.MediaContainer.Directory[]? | "\(.title):\n  Type: \(.type)"'
   
   # Alternative: use Tautulli
   local taut_libs
@@ -241,7 +230,7 @@ cmd_library_stats() {
   
   echo ""
   echo "Library Details (from Tautulli):"
-  echo "$taut_libs" | jq -r '.response.data[] | "  \(.section_name): \(.count) items (\(.section_type))"'
+  echo "$taut_libs" | jq -r '.response.data[]? | "  \(.section_name): \(.count | tonumber? // 0) items (\(.section_type))"'
   
   echo ""
 }
@@ -249,6 +238,9 @@ cmd_library_stats() {
 # Command: recently added
 cmd_recent_added() {
   local count="${1:-10}"
+
+  [[ "$count" =~ ^[0-9]+$ ]] || count=10
+  (( count > 100 )) && count=100
   
   echo "🆕 Recently Added to Plex (Last $count)"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -293,7 +285,7 @@ case "$COMMAND" in
   activity)        cmd_activity ;;
   history)         cmd_history "${2:-20}" ;;
   most-watched)    cmd_most_watched "${2:-month}" ;;
-  popular-genres)  cmd_popular_genres "${2:-month}" ;;
+  popular-genres)  cmd_popular_genres ;;
   peak-hours)      cmd_peak_hours ;;
   user-stats)      cmd_user_stats "${2:-}" ;;
   library-stats)   cmd_library_stats ;;

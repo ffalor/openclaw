@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# library.sh - Deep library exploration for Sonarr/Radarr
+# library.sh - Deep library exploration for Sonarr/Radarr/Readarr
 # Usage: library.sh <command> [options]
 #
 # Commands:
@@ -14,14 +14,19 @@
 #   nofiles [app]        - Monitored content with no files
 #   disk [app]           - Disk usage by root folder
 #
-# App: radarr, sonarr, lidarr (default: all)
+# App: radarr, sonarr, readarr, lidarr (default: all)
 
 set -euo pipefail
 
 HOST="${CLAWARR_HOST:-}"
+CLAWARR_SCHEME="${CLAWARR_SCHEME:-http}"
 SONARR_KEY="${SONARR_KEY:-}"
 RADARR_KEY="${RADARR_KEY:-}"
+READARR_KEY="${READARR_KEY:-}"
 LIDARR_KEY="${LIDARR_KEY:-}"
+SONARR_PORT="${SONARR_PORT:-8989}"
+RADARR_PORT="${RADARR_PORT:-7878}"
+READARR_PORT="${READARR_PORT:-8787}"
 
 if [[ -z "$HOST" ]]; then
   echo "❌ Error: CLAWARR_HOST not set"
@@ -46,22 +51,29 @@ api_call() {
   local key=""
   local port=""
   local api_ver=""
+  local scheme="$CLAWARR_SCHEME"
   
   case "$app" in
     radarr)
       key="$RADARR_KEY"
-      port=7878
+      port="$RADARR_PORT"
       api_ver="v3"
       ;;
     sonarr)
       key="$SONARR_KEY"
-      port=8989
+      port="$SONARR_PORT"
       api_ver="v3"
+      ;;
+    readarr)
+      key="$READARR_KEY"
+      port="$READARR_PORT"
+      api_ver="v1"
       ;;
     lidarr)
       key="$LIDARR_KEY"
       port=8686
       api_ver="v1"
+      scheme="http"
       ;;
     *)
       echo "❌ Unknown app: $app"
@@ -70,11 +82,18 @@ api_call() {
   esac
   
   if [[ -z "$key" ]]; then
-    echo "❌ API key not set for $app"
-    return 1
+    printf '[]'
+    return 0
   fi
-  
-  curl -sf -H "X-Api-Key: $key" "http://${HOST}:${port}/api/${api_ver}${endpoint}"
+
+  curl -fsS --connect-timeout 3 --max-time 20 -H "X-Api-Key: $key" "${scheme}://${HOST}:${port}/api/${api_ver}${endpoint}" 2>/dev/null || printf '[]'
+}
+
+bytes_to_gb() {
+  local bytes="${1:-0}"
+  [[ "$bytes" =~ ^[0-9]+([.][0-9]+)?$ ]] || bytes=0
+  command -v bc >/dev/null 2>&1 || { printf '0.00'; return; }
+  printf 'scale=2; %s / 1073741824\n' "$bytes" | bc 2>/dev/null || printf '0.00'
 }
 
 # Command: stats
@@ -97,9 +116,9 @@ cmd_stats() {
     local missing
     missing=$(echo "$data" | jq '[.[] | select(.monitored == true and .hasFile == false)] | length')
     local size
-    size=$(echo "$data" | jq '[.[] | select(.hasFile == true) | .sizeOnDisk] | add // 0')
+    size=$(echo "$data" | jq '[.[] | select(.hasFile == true) | (.sizeOnDisk // 0) | if type == "number" then . else 0 end] | add // 0')
     local size_gb
-    size_gb=$(echo "scale=2; $size / 1073741824" | bc)
+    size_gb=$(bytes_to_gb "$size")
     
     echo "  Total Movies: $total"
     echo "  Monitored: $monitored"
@@ -121,21 +140,45 @@ cmd_stats() {
     local monitored_series
     monitored_series=$(echo "$series_data" | jq '[.[] | select(.monitored == true)] | length')
     local total_episodes
-    total_episodes=$(echo "$series_data" | jq '[.[] | (.statistics.totalEpisodeCount // .statistics.episodeCount // 0)] | add // 0')
+    total_episodes=$(echo "$series_data" | jq '[.[] | (.statistics.totalEpisodeCount // .statistics.episodeCount // 0) | if type == "number" then . else 0 end] | add // 0')
     local downloaded_episodes
-    downloaded_episodes=$(echo "$series_data" | jq '[.[] | (.statistics.episodeFileCount // 0)] | add // 0')
+    downloaded_episodes=$(echo "$series_data" | jq '[.[] | (.statistics.episodeFileCount // 0) | if type == "number" then . else 0 end] | add // 0')
     local missing_episodes
-    missing_episodes=$(echo "$series_data" | jq '[.[] | select(.monitored == true) | ((.statistics.totalEpisodeCount // .statistics.episodeCount // 0) - (.statistics.episodeFileCount // 0))] | add // 0')
+    missing_episodes=$(echo "$series_data" | jq '[.[] | select(.monitored == true) | (((.statistics.totalEpisodeCount // .statistics.episodeCount // 0) | if type == "number" then . else 0 end) - ((.statistics.episodeFileCount // 0) | if type == "number" then . else 0 end)) | if . > 0 then . else 0 end] | add // 0')
     local size
-    size=$(echo "$series_data" | jq '[.[] | .statistics.sizeOnDisk] | add // 0')
+    size=$(echo "$series_data" | jq '[.[] | (.statistics.sizeOnDisk // 0) | if type == "number" then . else 0 end] | add // 0')
     local size_gb
-    size_gb=$(echo "scale=2; $size / 1073741824" | bc)
+    size_gb=$(bytes_to_gb "$size")
     
     echo "  Total Series: $total_series"
     echo "  Monitored Series: $monitored_series"
     echo "  Total Episodes: $total_episodes"
     echo "  Downloaded Episodes: $downloaded_episodes"
     echo "  Missing Episodes: $missing_episodes"
+    echo "  Disk Usage: ${size_gb} GB"
+    echo ""
+  fi
+
+  if [[ "$app" == "all" || "$app" == "readarr" ]] && [[ -n "$READARR_KEY" ]]; then
+    echo "📚 Readarr Library Statistics"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+    local author_data
+    author_data=$(api_call readarr "/author")
+    local total_authors monitored_authors total_books downloaded_books missing_books size size_gb
+    total_authors=$(echo "$author_data" | jq 'if type == "array" then length else 0 end')
+    monitored_authors=$(echo "$author_data" | jq '[.[]? | select(.monitored == true)] | length')
+    total_books=$(echo "$author_data" | jq '[.[]? | (.statistics.bookCount // 0) | if type == "number" then . else 0 end] | add // 0')
+    downloaded_books=$(echo "$author_data" | jq '[.[]? | (.statistics.bookFileCount // 0) | if type == "number" then . else 0 end] | add // 0')
+    missing_books=$(echo "$author_data" | jq '[.[]? | select(.monitored == true) | ((.statistics.bookCount // 0) - (.statistics.bookFileCount // 0)) | if type == "number" and . > 0 then . else 0 end] | add // 0')
+    size=$(echo "$author_data" | jq '[.[]? | (.statistics.sizeOnDisk // 0) | if type == "number" then . else 0 end] | add // 0')
+    size_gb=$(bytes_to_gb "$size")
+
+    echo "  Total Authors: $total_authors"
+    echo "  Monitored Authors: $monitored_authors"
+    echo "  Total Books: $total_books"
+    echo "  Downloaded Books: $downloaded_books"
+    echo "  Missing Books: $missing_books"
     echo "  Disk Usage: ${size_gb} GB"
     echo ""
   fi

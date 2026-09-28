@@ -10,15 +10,12 @@
 set -euo pipefail
 
 HOST="${CLAWARR_HOST:-}"
+CLAWARR_SCHEME="${CLAWARR_SCHEME:-http}"
 PROWLARR_KEY="${PROWLARR_KEY:-}"
+PROWLARR_PORT="${PROWLARR_PORT:-9696}"
 
 if [[ -z "$HOST" ]]; then
   echo "❌ Error: CLAWARR_HOST not set"
-  exit 1
-fi
-
-if [[ -z "$PROWLARR_KEY" ]]; then
-  echo "❌ Error: PROWLARR_KEY not set"
   exit 1
 fi
 
@@ -38,12 +35,18 @@ prowlarr_api() {
   local endpoint=$2
   local data="${3:-}"
   
-  local url="http://${HOST}:9696/api/v1${endpoint}"
+  if [[ -z "$PROWLARR_KEY" ]]; then
+    [[ "$method" == "GET" ]] && { printf '[]'; return 0; }
+    echo "❌ PROWLARR_KEY not set" >&2
+    return 1
+  fi
+
+  local url="${CLAWARR_SCHEME}://${HOST}:${PROWLARR_PORT}/api/v1${endpoint}"
   
   if [[ "$method" == "GET" ]]; then
-    curl -sf -H "X-Api-Key: $PROWLARR_KEY" "$url"
+    curl -fsS --connect-timeout 3 --max-time 20 -H "X-Api-Key: $PROWLARR_KEY" "$url" 2>/dev/null || printf '[]'
   elif [[ "$method" == "POST" ]]; then
-    curl -sf -X POST -H "X-Api-Key: $PROWLARR_KEY" -H "Content-Type: application/json" -d "$data" "$url"
+    curl -fsS --connect-timeout 3 --max-time 20 -X POST -H "X-Api-Key: $PROWLARR_KEY" -H "Content-Type: application/json" -d "$data" "$url" 2>/dev/null
   fi
 }
 
@@ -146,12 +149,12 @@ cmd_test() {
 
 # Command: stats
 cmd_stats() {
-  echo "📊 Indexer Performance Statistics"
+  echo "📊 Indexer Performance (Latest 100 Events)"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
   # Get indexer stats from history
   local history
-  history=$(prowlarr_api GET "/history?pageSize=1000")
+  history=$(prowlarr_api GET "/history?page=1&pageSize=100")
   
   if [[ $(echo "$history" | jq '.records | length') -eq 0 ]]; then
     echo "  No indexer history available"
@@ -184,7 +187,7 @@ cmd_stats() {
   
   echo "    Successful: $successful"
   echo "    Failed: $failed"
-  echo "    Total: $total"
+  echo "    Events in this sample: $total"
   
   if [[ $total -gt 0 ]]; then
     local success_rate
@@ -197,6 +200,11 @@ cmd_stats() {
 
 # Main command router
 COMMAND="${1:-help}"
+
+if [[ -z "$PROWLARR_KEY" && "$COMMAND" != "help" && "$COMMAND" != "--help" && "$COMMAND" != "-h" ]]; then
+  echo "⚠️  PROWLARR_KEY not set; skipping Prowlarr command"
+  exit 0
+fi
 
 case "$COMMAND" in
   list)  cmd_list ;;

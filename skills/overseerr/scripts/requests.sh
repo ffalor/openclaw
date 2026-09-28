@@ -12,15 +12,12 @@
 set -euo pipefail
 
 HOST="${CLAWARR_HOST:-}"
+CLAWARR_SCHEME="${CLAWARR_SCHEME:-http}"
 OVERSEERR_KEY="${OVERSEERR_KEY:-}"
+OVERSEERR_PORT="${OVERSEERR_PORT:-5055}"
 
 if [[ -z "$HOST" ]]; then
   echo "❌ Error: CLAWARR_HOST not set"
-  exit 1
-fi
-
-if [[ -z "$OVERSEERR_KEY" ]]; then
-  echo "❌ Error: OVERSEERR_KEY not set"
   exit 1
 fi
 
@@ -40,12 +37,18 @@ overseerr_api() {
   local endpoint=$2
   local data="${3:-}"
   
-  local url="http://${HOST}:5055/api/v1${endpoint}"
+  if [[ -z "$OVERSEERR_KEY" ]]; then
+    [[ "$method" == "GET" ]] && { printf '{}'; return 0; }
+    echo "❌ OVERSEERR_KEY not set" >&2
+    return 1
+  fi
+
+  local url="${CLAWARR_SCHEME}://${HOST}:${OVERSEERR_PORT}/api/v1${endpoint}"
   
   if [[ "$method" == "GET" ]]; then
-    curl -sf -H "X-Api-Key: $OVERSEERR_KEY" "$url"
+    curl -fsS --connect-timeout 3 --max-time 20 -H "X-Api-Key: $OVERSEERR_KEY" "$url" 2>/dev/null || printf '{}'
   elif [[ "$method" == "POST" ]]; then
-    curl -sf -X POST -H "X-Api-Key: $OVERSEERR_KEY" -H "Content-Type: application/json" -d "$data" "$url"
+    curl -fsS --connect-timeout 3 --max-time 20 -X POST -H "X-Api-Key: $OVERSEERR_KEY" -H "Content-Type: application/json" -d "$data" "$url" 2>/dev/null
   fi
 }
 
@@ -84,7 +87,7 @@ cmd_list() {
     "' | sed 's/^/  /'
   
   local total
-  total=$(echo "$requests" | jq '.pageInfo.results')
+  total=$(echo "$requests" | jq '.pageInfo.results // (.results | length) // 0')
   echo "  Total: $total"
   echo ""
 }
@@ -173,26 +176,16 @@ cmd_stats() {
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
   # Get all requests
-  local all_requests
-  all_requests=$(overseerr_api GET "/request?take=1000")
-  
-  local total
-  total=$(echo "$all_requests" | jq '.results | length')
-  
-  local pending
-  pending=$(echo "$all_requests" | jq '[.results[] | select(.media.status == 2)] | length')
-  
-  local processing
-  processing=$(echo "$all_requests" | jq '[.results[] | select(.media.status == 3)] | length')
-  
-  local available
-  available=$(echo "$all_requests" | jq '[.results[] | select(.media.status == 5)] | length')
-  
-  local movies
-  movies=$(echo "$all_requests" | jq '[.results[] | select(.type == "movie")] | length')
-  
-  local tv
-  tv=$(echo "$all_requests" | jq '[.results[] | select(.type == "tv")] | length')
+  local counts recent_requests
+  counts=$(overseerr_api GET "/request/count")
+  recent_requests=$(overseerr_api GET "/request?take=50&skip=0")
+  local total pending processing available movies tv
+  total=$(echo "$counts" | jq '.total // 0')
+  pending=$(echo "$counts" | jq '.pending // 0')
+  processing=$(echo "$counts" | jq '.processing // 0')
+  available=$(echo "$counts" | jq '.available // 0')
+  movies=$(echo "$counts" | jq '.movie // 0')
+  tv=$(echo "$counts" | jq '.tv // 0')
   
   echo "  Total Requests: $total"
   echo "  Pending: $pending"
@@ -204,8 +197,8 @@ cmd_stats() {
   echo ""
   
   # Top requesters
-  echo "  Top Requesters:"
-  echo "$all_requests" | jq -r '.results[] | .requestedBy.displayName // .requestedBy.email' | \
+  echo "  Top Requesters (latest 50 requests):"
+  echo "$recent_requests" | jq -r '.results[]? | .requestedBy.displayName // .requestedBy.email' | \
     sort | uniq -c | sort -rn | head -5 | while read -r count user; do
       printf "    %-30s %5d requests\n" "$user" "$count"
     done
@@ -215,6 +208,11 @@ cmd_stats() {
 
 # Main command router
 COMMAND="${1:-help}"
+
+if [[ -z "$OVERSEERR_KEY" && "$COMMAND" != "help" && "$COMMAND" != "--help" && "$COMMAND" != "-h" ]]; then
+  echo "⚠️  OVERSEERR_KEY not set; skipping Overseerr command"
+  exit 0
+fi
 
 case "$COMMAND" in
   list)    cmd_list "${2:-all}" ;;

@@ -34,11 +34,17 @@ Bootstrap skill for a self-hosted *arr media stack. Handles guided setup and API
 | `TAUTULLI_KEY` | No (unset-ok) | Tautulli API key |
 | `SABNZBD_KEY` | No (unset-ok) | SABnzbd API key |
 | `NOTIFIARR_KEY` | No (unset-ok) | Notifiarr API key |
-| `SABNZBD_PORT` | No (unset-ok) | SABnzbd HTTP port (default `38080`) |
+| `SABNZBD_PORT` | No (unset-ok) | SABnzbd HTTP port (default `8081`) |
 | `TAUTULLI_PORT` | No (unset-ok) | Tautulli HTTP port (default `8181`) |
 | `PLEX_HOST` | No (unset-ok) | Plex server host (defaults to `CLAWARR_HOST`) |
 | `PLEX_SCHEME` | No (unset-ok) | Plex URL scheme, `http` or `https` (default `http`) |
 | `PLEX_PORT` | No (unset-ok) | Plex port (default `32400`) |
+| `CLAWARR_SCHEME` | No (unset-ok) | Scheme for Sonarr/Radarr/Readarr/Prowlarr/Overseerr/SABnzbd/Tautulli (default `http`) |
+| `SONARR_PORT` | No (unset-ok) | Sonarr HTTP port (default `8989`) |
+| `RADARR_PORT` | No (unset-ok) | Radarr HTTP port (default `7878`) |
+| `READARR_PORT` | No (unset-ok) | Readarr HTTP port (default `8787`) |
+| `PROWLARR_PORT` | No (unset-ok) | Prowlarr HTTP port (default `9696`) |
+| `OVERSEERR_PORT` | No (unset-ok) | Overseerr HTTP port (default `5055`) |
 
 All service keys are optional — the skill degrades gracefully when a key is absent (unconfigured services are skipped, not errors).
 
@@ -91,7 +97,7 @@ Creates a dark-themed dashboard with system health, download activity, library s
 - Overseerr: 5055
 - Plex: 32400
 - Tautulli: 8181
-- SABnzbd: 38080
+- SABnzbd: 8081
 - Notifiarr: 5454
 - Maintainerr: 6246
 - FlareSolverr: 8191

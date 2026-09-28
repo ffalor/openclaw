@@ -24,7 +24,7 @@ Or Header: X-Api-Key: <key>
 
 ## SABnzbd (API)
 
-Base URL: `http://host:38080/api`
+Base URL: `http://host:8081/api`
 
 All requests: `?apikey=<key>&mode=<mode>&output=json`
 

@@ -15,14 +15,21 @@
 set -euo pipefail
 
 HOST="${CLAWARR_HOST:-}"
+CLAWARR_SCHEME="${CLAWARR_SCHEME:-http}"
 SONARR_KEY="${SONARR_KEY:-}"
+SONARR_PORT="${SONARR_PORT:-8989}"
 RADARR_KEY="${RADARR_KEY:-}"
+RADARR_PORT="${RADARR_PORT:-7878}"
+READARR_KEY="${READARR_KEY:-}"
+READARR_PORT="${READARR_PORT:-8787}"
 TAUTULLI_KEY="${TAUTULLI_KEY:-}"
 TAUTULLI_PORT="${TAUTULLI_PORT:-8181}"
 SABNZBD_KEY="${SABNZBD_KEY:-}"
-SABNZBD_PORT="${SABNZBD_PORT:-38080}"
+SABNZBD_PORT="${SABNZBD_PORT:-8081}"
 PROWLARR_KEY="${PROWLARR_KEY:-}"
+PROWLARR_PORT="${PROWLARR_PORT:-9696}"
 OVERSEERR_KEY="${OVERSEERR_KEY:-}"
+OVERSEERR_PORT="${OVERSEERR_PORT:-5055}"
 BAZARR_KEY="${BAZARR_KEY:-}"
 PLEX_TOKEN="${PLEX_TOKEN:-}"
 PLEX_HOST="${PLEX_HOST:-$HOST}"
@@ -51,23 +58,27 @@ api_call() {
   local app=$1
   local endpoint=$2
   local key="" port="" api_ver=""
+  local fallback='[]'
+  [[ "$endpoint" == /queue* ]] && fallback='{"records":[],"totalRecords":0}'
+  [[ "$app" == "bazarr" ]] && fallback='{}'
   
   case "$app" in
-    radarr)   key="$RADARR_KEY"; port=7878; api_ver="v3" ;;
-    sonarr)   key="$SONARR_KEY"; port=8989; api_ver="v3" ;;
-    prowlarr) key="$PROWLARR_KEY"; port=9696; api_ver="v1" ;;
+    radarr)   key="$RADARR_KEY"; port="$RADARR_PORT"; api_ver="v3" ;;
+    sonarr)   key="$SONARR_KEY"; port="$SONARR_PORT"; api_ver="v3" ;;
+    readarr)  key="$READARR_KEY"; port="$READARR_PORT"; api_ver="v1" ;;
+    prowlarr) key="$PROWLARR_KEY"; port="$PROWLARR_PORT"; api_ver="v1" ;;
     bazarr)   key="$BAZARR_KEY"; port=6767; api_ver="" ;;
     *) echo "{}"; return 1 ;;
   esac
   
-  [[ -z "$key" ]] && echo "{}" && return 1
+  [[ -z "$key" ]] && { printf '%s\n' "$fallback"; return 0; }
   
-  local url="http://${HOST}:${port}/api/${api_ver}${endpoint}"
+  local url="${CLAWARR_SCHEME}://${HOST}:${port}/api/${api_ver}${endpoint}"
   if [[ "$app" == "bazarr" ]]; then
     url="http://${HOST}:${port}/api${endpoint}"
   fi
   
-  curl -sf -H "X-Api-Key: $key" "$url" 2>/dev/null || echo "{}"
+  curl -fsS --connect-timeout 3 --max-time 20 -H "X-Api-Key: $key" "$url" 2>/dev/null || printf '%s\n' "$fallback"
 }
 
 # Measure API response time (using curl's time_total)
@@ -77,9 +88,9 @@ measure_response_time() {
   
   local time_ms
   if [[ -n "$auth_header" ]]; then
-    time_ms=$(curl -sf -o /dev/null -w "%{time_total}" -H "$auth_header" "$url" 2>/dev/null || echo "0")
+    time_ms=$(curl -fsS --connect-timeout 3 --max-time 10 -o /dev/null -w "%{time_total}" -H "$auth_header" "$url" 2>/dev/null || echo "0")
   else
-    time_ms=$(curl -sf -o /dev/null -w "%{time_total}" "$url" 2>/dev/null || echo "0")
+    time_ms=$(curl -fsS --connect-timeout 3 --max-time 10 -o /dev/null -w "%{time_total}" "$url" 2>/dev/null || echo "0")
   fi
   
   if [[ "$time_ms" == "0" || -z "$time_ms" ]]; then
@@ -90,19 +101,29 @@ measure_response_time() {
   fi
 }
 
+measure_configured_service() {
+  local key=$1 url=$2 auth_header=${3:-}
+  if [[ -z "$key" ]]; then
+    echo "N/A"
+  else
+    measure_response_time "$url" "$auth_header"
+  fi
+}
+
 # Collect data
 echo "📡 Collecting data from services..."
 
 # Initialize all variables with defaults
-RADARR_TOTAL=0 RADARR_MONITORED=0 RADARR_DOWNLOADED=0 RADARR_MISSING=0 RADARR_SIZE=0 RADARR_SIZE_GB=0 RADARR_DOWNLOADING=0
+RADARR_TOTAL=0 RADARR_MONITORED=0 RADARR_DOWNLOADED=0 RADARR_MONITORED_DOWNLOADED=0 RADARR_MISSING=0 RADARR_SIZE=0 RADARR_SIZE_GB=0 RADARR_DOWNLOADING=0
 SONARR_TOTAL=0 SONARR_MONITORED=0 SONARR_SIZE=0 SONARR_SIZE_GB=0 SONARR_DOWNLOADING=0 SONARR_EPISODES=0 SONARR_EPISODE_FILES=0
+READARR_TOTAL=0 READARR_MONITORED=0 READARR_BOOKS=0 READARR_BOOK_FILES=0 READARR_MISSING=0 READARR_SIZE=0 READARR_SIZE_GB=0
 SABNZBD_SPEED="0 B/s" SABNZBD_SIZE_LEFT="0 B" SABNZBD_TIME_LEFT="0:00:00" SABNZBD_PAUSED="false" SABNZBD_ITEMS=0
 TAUTULLI_STREAMS=0
 OVERSEERR_PENDING=0 OVERSEERR_TOTAL=0
 PROWLARR_TOTAL=0 PROWLARR_ENABLED=0
 BAZARR_TOTAL=0
 
-RADARR_MOVIES="{}" SONARR_SERIES="{}" RADARR_QUEUE="{}" SONARR_QUEUE="{}"
+RADARR_MOVIES="[]" SONARR_SERIES="[]" READARR_AUTHORS="[]" RADARR_QUEUE="{}" SONARR_QUEUE="{}"
 RADARR_RECENT="[]" SONARR_RECENT="[]"
 TAUTULLI_ACTIVITY="{}" TAUTULLI_HISTORY="{}" TAUTULLI_PLAYS="[]"
 SABNZBD_QUEUE="{}"
@@ -117,16 +138,18 @@ GENRE_DATA=""
 if [[ -n "$RADARR_KEY" ]]; then
   echo "  • Radarr..."
   RADARR_MOVIES=$(api_call radarr "/movie")
-  RADARR_QUEUE=$(api_call radarr "/queue")
+  RADARR_QUEUE=$(api_call radarr "/queue?page=1&pageSize=1")
   RADARR_RECENT=$(api_call radarr "/movie" | jq '[.[] | select(.hasFile == true)] | sort_by(.added) | reverse | .[0:10]')
   
   RADARR_TOTAL=$(echo "$RADARR_MOVIES" | jq 'length')
   RADARR_MONITORED=$(echo "$RADARR_MOVIES" | jq '[.[] | select(.monitored == true)] | length')
   RADARR_DOWNLOADED=$(echo "$RADARR_MOVIES" | jq '[.[] | select(.hasFile == true)] | length')
+  RADARR_MONITORED_DOWNLOADED=$(echo "$RADARR_MOVIES" | jq '[.[] | select(.monitored == true and .hasFile == true)] | length')
   RADARR_MISSING=$(echo "$RADARR_MOVIES" | jq '[.[] | select(.monitored == true and .hasFile == false)] | length')
-  RADARR_SIZE=$(echo "$RADARR_MOVIES" | jq '[.[] | select(.hasFile == true) | .sizeOnDisk] | add // 0')
+  RADARR_SIZE=$(echo "$RADARR_MOVIES" | jq '[.[] | select(.hasFile == true) | (.sizeOnDisk | if type == "number" then . else 0 end)] | add // 0')
+  [[ "$RADARR_SIZE" =~ ^[0-9]+([.][0-9]+)?$ ]] || RADARR_SIZE=0
   RADARR_SIZE_GB=$(echo "scale=1; $RADARR_SIZE / 1073741824" | bc 2>/dev/null || echo "0")
-  RADARR_DOWNLOADING=$(echo "$RADARR_QUEUE" | jq 'if .records then .records | length else 0 end')
+  RADARR_DOWNLOADING=$(echo "$RADARR_QUEUE" | jq '.totalRecords // (.records | length) // 0')
   
   # Quality distribution from Radarr
   QUAL_4K=$(echo "$RADARR_MOVIES" | jq '[.[] | select(.hasFile == true) | select(.movieFile.quality.quality.resolution >= 2160)] | length')
@@ -142,35 +165,50 @@ fi
 if [[ -n "$SONARR_KEY" ]]; then
   echo "  • Sonarr..."
   SONARR_SERIES=$(api_call sonarr "/series")
-  SONARR_QUEUE=$(api_call sonarr "/queue")
+  SONARR_QUEUE=$(api_call sonarr "/queue?page=1&pageSize=1")
   SONARR_RECENT=$(echo "$SONARR_SERIES" | jq 'sort_by(.added) | reverse | .[0:10] | map({title: .title, added: .added})')
   
   SONARR_TOTAL=$(echo "$SONARR_SERIES" | jq 'length')
   SONARR_MONITORED=$(echo "$SONARR_SERIES" | jq '[.[] | select(.monitored == true)] | length')
-  SONARR_SIZE=$(echo "$SONARR_SERIES" | jq '[.[] | .statistics.sizeOnDisk] | add // 0')
+  SONARR_SIZE=$(echo "$SONARR_SERIES" | jq '[.[] | (.statistics.sizeOnDisk // 0) | if type == "number" then . else 0 end] | add // 0')
+  [[ "$SONARR_SIZE" =~ ^[0-9]+([.][0-9]+)?$ ]] || SONARR_SIZE=0
   SONARR_SIZE_GB=$(echo "scale=1; $SONARR_SIZE / 1073741824" | bc 2>/dev/null || echo "0")
-  SONARR_DOWNLOADING=$(echo "$SONARR_QUEUE" | jq 'if .records then .records | length else 0 end')
-  SONARR_EPISODES=$(echo "$SONARR_SERIES" | jq '[.[] | .statistics.episodeCount] | add // 0')
-  SONARR_EPISODE_FILES=$(echo "$SONARR_SERIES" | jq '[.[] | .statistics.episodeFileCount] | add // 0')
+  SONARR_DOWNLOADING=$(echo "$SONARR_QUEUE" | jq '.totalRecords // (.records | length) // 0')
+  SONARR_EPISODES=$(echo "$SONARR_SERIES" | jq '[.[] | (.statistics.totalEpisodeCount // .statistics.episodeCount // 0) | if type == "number" then . else 0 end] | add // 0')
+  SONARR_EPISODE_FILES=$(echo "$SONARR_SERIES" | jq '[.[] | (.statistics.episodeFileCount // 0) | if type == "number" then . else 0 end] | add // 0')
+fi
+
+# Readarr author and book statistics (Readarr API v1)
+if [[ -n "$READARR_KEY" ]]; then
+  echo "  • Readarr..."
+  READARR_AUTHORS=$(api_call readarr "/author")
+  READARR_TOTAL=$(echo "$READARR_AUTHORS" | jq 'if type == "array" then length else 0 end')
+  READARR_MONITORED=$(echo "$READARR_AUTHORS" | jq '[.[]? | select(.monitored == true)] | length')
+  READARR_BOOKS=$(echo "$READARR_AUTHORS" | jq '[.[]? | (.statistics.bookCount // 0) | if type == "number" then . else 0 end] | add // 0')
+  READARR_BOOK_FILES=$(echo "$READARR_AUTHORS" | jq '[.[]? | (.statistics.bookFileCount // 0) | if type == "number" then . else 0 end] | add // 0')
+  READARR_MISSING=$(echo "$READARR_AUTHORS" | jq '[.[]? | select(.monitored == true) | ((.statistics.bookCount // 0) - (.statistics.bookFileCount // 0)) | if type == "number" and . > 0 then . else 0 end] | add // 0')
+  READARR_SIZE=$(echo "$READARR_AUTHORS" | jq '[.[]? | (.statistics.sizeOnDisk // 0) | if type == "number" then . else 0 end] | add // 0')
+  [[ "$READARR_SIZE" =~ ^[0-9]+([.][0-9]+)?$ ]] || READARR_SIZE=0
+  READARR_SIZE_GB=$(echo "scale=1; $READARR_SIZE / 1073741824" | bc 2>/dev/null || echo "0")
 fi
 
 # SABnzbd stats
 if [[ -n "$SABNZBD_KEY" ]]; then
   echo "  • SABnzbd..."
-  SABNZBD_QUEUE=$(curl -sf "http://${HOST}:${SABNZBD_PORT}/api?apikey=${SABNZBD_KEY}&mode=queue&output=json" 2>/dev/null || echo '{}')
+  SABNZBD_QUEUE=$(curl -fsS --connect-timeout 3 --max-time 20 "${CLAWARR_SCHEME}://${HOST}:${SABNZBD_PORT}/api?apikey=${SABNZBD_KEY}&mode=queue&output=json&limit=50" 2>/dev/null || echo '{}')
   SABNZBD_SPEED=$(echo "$SABNZBD_QUEUE" | jq -r '.queue.speed // "0 B/s"')
   SABNZBD_SIZE_LEFT=$(echo "$SABNZBD_QUEUE" | jq -r '.queue.sizeleft // "0 B"')
   SABNZBD_TIME_LEFT=$(echo "$SABNZBD_QUEUE" | jq -r '.queue.timeleft // "0:00:00"')
   SABNZBD_PAUSED=$(echo "$SABNZBD_QUEUE" | jq -r '.queue.paused // false')
-  SABNZBD_ITEMS=$(echo "$SABNZBD_QUEUE" | jq '.queue.slots | length')
+  SABNZBD_ITEMS=$(echo "$SABNZBD_QUEUE" | jq '.queue.noofslots_total // .queue.noofslots // (.queue.slots | length) // 0')
 fi
 
 # Tautulli stats
 if [[ -n "$TAUTULLI_KEY" ]]; then
   echo "  • Tautulli..."
-  TAUTULLI_ACTIVITY=$(curl -sf "http://${HOST}:${TAUTULLI_PORT}/api/v2?apikey=${TAUTULLI_KEY}&cmd=get_activity" 2>/dev/null || echo '{}')
-  TAUTULLI_HISTORY=$(curl -sf "http://${HOST}:${TAUTULLI_PORT}/api/v2?apikey=${TAUTULLI_KEY}&cmd=get_history&length=10" 2>/dev/null || echo '{}')
-  TAUTULLI_PLAYS=$(curl -sf "http://${HOST}:${TAUTULLI_PORT}/api/v2?apikey=${TAUTULLI_KEY}&cmd=get_plays_by_date&time_range=30" 2>/dev/null | jq -r '.response.data.series_1_data // []')
+  TAUTULLI_ACTIVITY=$(curl -fsS --connect-timeout 3 --max-time 20 "${CLAWARR_SCHEME}://${HOST}:${TAUTULLI_PORT}/api/v2?apikey=${TAUTULLI_KEY}&cmd=get_activity" 2>/dev/null || echo '{}')
+  TAUTULLI_HISTORY=$(curl -fsS --connect-timeout 3 --max-time 20 "${CLAWARR_SCHEME}://${HOST}:${TAUTULLI_PORT}/api/v2?apikey=${TAUTULLI_KEY}&cmd=get_history&length=10" 2>/dev/null || echo '{}')
+  TAUTULLI_PLAYS=$(curl -fsS --connect-timeout 3 --max-time 20 "${CLAWARR_SCHEME}://${HOST}:${TAUTULLI_PORT}/api/v2?apikey=${TAUTULLI_KEY}&cmd=get_plays_by_date&time_range=30" 2>/dev/null | jq -r '.response.data.series_1_data // []' || echo '[]')
   
   TAUTULLI_STREAMS=$(echo "$TAUTULLI_ACTIVITY" | jq -r '.response.data.stream_count // 0')
 fi
@@ -178,9 +216,9 @@ fi
 # Overseerr stats
 if [[ -n "$OVERSEERR_KEY" ]]; then
   echo "  • Overseerr..."
-  OVERSEERR_REQUESTS=$(curl -sf -H "X-Api-Key: $OVERSEERR_KEY" "http://${HOST}:5055/api/v1/request?take=100" 2>/dev/null || echo '{}')
-  OVERSEERR_PENDING=$(echo "$OVERSEERR_REQUESTS" | jq '[.results[]? | select(.media.status == 2)] | length')
-  OVERSEERR_TOTAL=$(echo "$OVERSEERR_REQUESTS" | jq '.results | length')
+  OVERSEERR_REQUESTS=$(curl -fsS --connect-timeout 3 --max-time 20 -H "X-Api-Key: $OVERSEERR_KEY" "${CLAWARR_SCHEME}://${HOST}:${OVERSEERR_PORT}/api/v1/request/count" 2>/dev/null || echo '{}')
+  OVERSEERR_PENDING=$(echo "$OVERSEERR_REQUESTS" | jq '.pending // 0')
+  OVERSEERR_TOTAL=$(echo "$OVERSEERR_REQUESTS" | jq '.total // 0')
 fi
 
 # Prowlarr indexers
@@ -200,13 +238,14 @@ fi
 
 # Service health checks
 echo "  • Measuring service response times..."
-SONARR_RT=$(measure_response_time "http://${HOST}:8989/api/v3/health" "X-Api-Key: $SONARR_KEY")
-RADARR_RT=$(measure_response_time "http://${HOST}:7878/api/v3/health" "X-Api-Key: $RADARR_KEY")
-PLEX_RT=$(measure_response_time "${PLEX_SCHEME}://${PLEX_HOST}:${PLEX_PORT}/identity" "")
-TAUTULLI_RT=$(measure_response_time "http://${HOST}:${TAUTULLI_PORT}/api/v2?cmd=arnold" "")
-SABNZBD_RT=$(measure_response_time "http://${HOST}:${SABNZBD_PORT}/api?mode=version" "")
-OVERSEERR_RT=$(measure_response_time "http://${HOST}:5055/api/v1/status" "")
-PROWLARR_RT=$(measure_response_time "http://${HOST}:9696/api/v1/health" "X-Api-Key: $PROWLARR_KEY")
+SONARR_RT=$(measure_configured_service "$SONARR_KEY" "${CLAWARR_SCHEME}://${HOST}:${SONARR_PORT}/api/v3/health" "X-Api-Key: $SONARR_KEY")
+RADARR_RT=$(measure_configured_service "$RADARR_KEY" "${CLAWARR_SCHEME}://${HOST}:${RADARR_PORT}/api/v3/health" "X-Api-Key: $RADARR_KEY")
+READARR_RT=$(measure_configured_service "$READARR_KEY" "${CLAWARR_SCHEME}://${HOST}:${READARR_PORT}/api/v1/health" "X-Api-Key: $READARR_KEY")
+PLEX_RT=$(measure_configured_service "$PLEX_TOKEN" "${PLEX_SCHEME}://${PLEX_HOST}:${PLEX_PORT}/identity" "X-Plex-Token: $PLEX_TOKEN")
+TAUTULLI_RT=$(measure_configured_service "$TAUTULLI_KEY" "${CLAWARR_SCHEME}://${HOST}:${TAUTULLI_PORT}/api/v2?apikey=${TAUTULLI_KEY}&cmd=arnold")
+SABNZBD_RT=$(measure_configured_service "$SABNZBD_KEY" "${CLAWARR_SCHEME}://${HOST}:${SABNZBD_PORT}/api?mode=version&apikey=${SABNZBD_KEY}")
+OVERSEERR_RT=$(measure_configured_service "$OVERSEERR_KEY" "${CLAWARR_SCHEME}://${HOST}:${OVERSEERR_PORT}/api/v1/status" "X-Api-Key: $OVERSEERR_KEY")
+PROWLARR_RT=$(measure_configured_service "$PROWLARR_KEY" "${CLAWARR_SCHEME}://${HOST}:${PROWLARR_PORT}/api/v1/health" "X-Api-Key: $PROWLARR_KEY")
 BAZARR_RT=$(measure_response_time "http://${HOST}:6767/api/system/status" "X-Api-Key: $BAZARR_KEY")
 
 # Calculate total storage
@@ -216,13 +255,14 @@ TOTAL_USED_TB=$(echo "scale=2; $TOTAL_SIZE_GB / 1024" | bc)
 
 # Calculate percentages
 if [[ $RADARR_MONITORED -gt 0 ]]; then
-  RADARR_PERCENT=$(echo "scale=1; ($RADARR_DOWNLOADED * 100) / $RADARR_MONITORED" | bc)
+  RADARR_PERCENT=$(echo "scale=1; ($RADARR_MONITORED_DOWNLOADED * 100) / $RADARR_MONITORED" | bc)
 else
   RADARR_PERCENT=0
 fi
 
 if [[ $SONARR_EPISODES -gt 0 ]]; then
   SONARR_PERCENT=$(echo "scale=1; ($SONARR_EPISODE_FILES * 100) / $SONARR_EPISODES" | bc)
+  (( SONARR_EPISODE_FILES > SONARR_EPISODES )) && SONARR_PERCENT=100
 else
   SONARR_PERCENT=0
 fi
@@ -233,7 +273,9 @@ else
   STORAGE_PERCENT=0
 fi
 
-TOTAL_MISSING=$((RADARR_MISSING + (SONARR_EPISODES - SONARR_EPISODE_FILES)))
+SONARR_MISSING=$((SONARR_EPISODES - SONARR_EPISODE_FILES))
+(( SONARR_MISSING < 0 )) && SONARR_MISSING=0
+TOTAL_MISSING=$((RADARR_MISSING + SONARR_MISSING))
 TIMESTAMP=$(date "+%Y-%m-%d %H:%M")
 
 echo "✅ Data collected. Generating premium HTML..."
@@ -316,9 +358,9 @@ cat > "$OUTPUT_FILE" << 'HTML_START'
     }
     
     /* Grid layouts */
-    .row-5 {
+    .row-6 {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(6, 1fr);
       gap: 20px;
       margin-bottom: 24px;
     }
@@ -635,17 +677,17 @@ cat > "$OUTPUT_FILE" << 'HTML_START'
     
     /* Responsive */
     @media (max-width: 1920px) {
-      .row-5 { grid-template-columns: repeat(3, 1fr); }
+      .row-6 { grid-template-columns: repeat(3, 1fr); }
       .service-grid { grid-template-columns: repeat(3, 1fr); }
     }
     
     @media (max-width: 1440px) {
-      .row-5 { grid-template-columns: repeat(2, 1fr); }
+      .row-6 { grid-template-columns: repeat(2, 1fr); }
       .service-grid { grid-template-columns: repeat(2, 1fr); }
     }
     
     @media (max-width: 1024px) {
-      .row-5, .row-3 { grid-template-columns: 1fr; }
+      .row-6, .row-3 { grid-template-columns: 1fr; }
       .service-grid { grid-template-columns: 1fr; }
       .top-bar { flex-direction: column; gap: 16px; }
     }
@@ -679,6 +721,7 @@ cat > "$OUTPUT_FILE" << 'HTML_START'
       <div class="service-status">
         <div class="status-dot"><div class="dot SERVICE_STATUS_SONARR"></div> Sonarr</div>
         <div class="status-dot"><div class="dot SERVICE_STATUS_RADARR"></div> Radarr</div>
+        <div class="status-dot"><div class="dot SERVICE_STATUS_READARR"></div> Readarr</div>
         <div class="status-dot"><div class="dot SERVICE_STATUS_PLEX"></div> Plex</div>
         <div class="status-dot"><div class="dot SERVICE_STATUS_SAB"></div> SABnzbd</div>
       </div>
@@ -686,7 +729,7 @@ cat > "$OUTPUT_FILE" << 'HTML_START'
     </div>
     
     <!-- ROW 1: Hero Stats -->
-    <div class="row-5">
+    <div class="row-6">
       
       <div class="card">
         <div class="card-icon">🎬</div>
@@ -700,6 +743,13 @@ cat > "$OUTPUT_FILE" << 'HTML_START'
         <div class="card-title">Total TV Shows</div>
         <div class="card-value">SONARR_TOTAL_PH</div>
         <div class="card-subtitle">SONARR_MONITORED_PH monitored</div>
+      </div>
+
+      <div class="card accent-amber">
+        <div class="card-icon">📚</div>
+        <div class="card-title">Readarr Authors</div>
+        <div class="card-value">READARR_TOTAL_PH</div>
+        <div class="card-subtitle">READARR_MONITORED_PH monitored • READARR_BOOK_FILES_PH / READARR_BOOKS_PH books • READARR_MISSING_PH missing</div>
       </div>
       
       <div class="card accent-green">
@@ -879,6 +929,15 @@ cat > "$OUTPUT_FILE" << 'HTML_START'
               <div class="service-rt">RADARR_RT_PH ms</div>
             </div>
             <div class="service-status-dot SERVICE_STATUS_RADARR"></div>
+          </div>
+
+          <div class="service-card">
+            <div class="service-icon">📚</div>
+            <div class="service-info">
+              <div class="service-name">Readarr</div>
+              <div class="service-rt">READARR_RT_PH ms</div>
+            </div>
+            <div class="service-status-dot SERVICE_STATUS_READARR"></div>
           </div>
           
           <div class="service-card">
@@ -1158,6 +1217,7 @@ status_class() {
 
 SERVICE_STATUS_SONARR=$(status_class "$SONARR_RT")
 SERVICE_STATUS_RADARR=$(status_class "$RADARR_RT")
+SERVICE_STATUS_READARR=$(status_class "$READARR_RT")
 SERVICE_STATUS_PLEX=$(status_class "$PLEX_RT")
 SERVICE_STATUS_TAUTULLI=$(status_class "$TAUTULLI_RT")
 SERVICE_STATUS_SAB=$(status_class "$SABNZBD_RT")
@@ -1185,8 +1245,6 @@ RADARR_CIRCUMFERENCE=263.89
 RADARR_DASH=$(echo "scale=2; $RADARR_CIRCUMFERENCE * (1 - $RADARR_PERCENT / 100)" | bc)
 SONARR_DASH=$(echo "scale=2; $RADARR_CIRCUMFERENCE * (1 - $SONARR_PERCENT / 100)" | bc)
 
-SONARR_MISSING=$((SONARR_EPISODES - SONARR_EPISODE_FILES))
-
 # Replace all placeholders in HTML
 sed -i.bak \
   -e "s|TIMESTAMP_PH|$TIMESTAMP|g" \
@@ -1195,6 +1253,12 @@ sed -i.bak \
   -e "s|RADARR_MISSING_PH|$RADARR_MISSING|g" \
   -e "s|RADARR_PERCENT_PH|$RADARR_PERCENT|g" \
   -e "s|RADARR_DASH_PH|$RADARR_DASH|g" \
+  -e "s|READARR_TOTAL_PH|$READARR_TOTAL|g" \
+  -e "s|READARR_MONITORED_PH|$READARR_MONITORED|g" \
+  -e "s|READARR_BOOKS_PH|$READARR_BOOKS|g" \
+  -e "s|READARR_BOOK_FILES_PH|$READARR_BOOK_FILES|g" \
+  -e "s|READARR_MISSING_PH|$READARR_MISSING|g" \
+  -e "s|READARR_SIZE_GB_PH|$READARR_SIZE_GB|g" \
   -e "s|SONARR_TOTAL_PH|$SONARR_TOTAL|g" \
   -e "s|SONARR_MONITORED_PH|$SONARR_MONITORED|g" \
   -e "s|SONARR_EPISODES_PH|$SONARR_EPISODES|g" \
@@ -1226,6 +1290,7 @@ sed -i.bak \
   -e "s|SABNZBD_ITEMS_PH|$SABNZBD_ITEMS|g" \
   -e "s|SONARR_RT_PH|$SONARR_RT|g" \
   -e "s|RADARR_RT_PH|$RADARR_RT|g" \
+  -e "s|READARR_RT_PH|$READARR_RT|g" \
   -e "s|PLEX_RT_PH|$PLEX_RT|g" \
   -e "s|TAUTULLI_RT_PH|$TAUTULLI_RT|g" \
   -e "s|SABNZBD_RT_PH|$SABNZBD_RT|g" \
@@ -1234,6 +1299,7 @@ sed -i.bak \
   -e "s|BAZARR_RT_PH|$BAZARR_RT|g" \
   -e "s|SERVICE_STATUS_SONARR|$SERVICE_STATUS_SONARR|g" \
   -e "s|SERVICE_STATUS_RADARR|$SERVICE_STATUS_RADARR|g" \
+  -e "s|SERVICE_STATUS_READARR|$SERVICE_STATUS_READARR|g" \
   -e "s|SERVICE_STATUS_PLEX|$SERVICE_STATUS_PLEX|g" \
   -e "s|SERVICE_STATUS_TAUTULLI|$SERVICE_STATUS_TAUTULLI|g" \
   -e "s|SERVICE_STATUS_SAB|$SERVICE_STATUS_SAB|g" \

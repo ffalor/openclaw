@@ -65,8 +65,8 @@ Natural-language prompts that users can give their AI agent to leverage the Claw
 - Recent watch history
 
 **"What genres are most popular?"**
-- Use: `scripts/analytics.sh popular-genres month`
-- Genre popularity based on play counts
+- Use: `scripts/analytics.sh popular-genres`
+- Common genres in the latest 100 history records
 
 **"What was recently added to Plex?"**
 - Use: `scripts/analytics.sh recent-added 20`

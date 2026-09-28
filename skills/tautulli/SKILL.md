@@ -28,7 +28,7 @@ Tautulli-backed commands documented here:
 analytics.sh activity              # Currently watching / active streams
 analytics.sh history [count]       # Watch history (default: 20)
 analytics.sh most-watched [period] # Most watched content (week/month/year, default: month)
-analytics.sh popular-genres [p]    # Most popular genres
+analytics.sh popular-genres         # Most common genres in latest 100 history records
 analytics.sh peak-hours            # Peak watching hours breakdown
 analytics.sh user-stats [user]     # User activity summary (default: all)
 analytics.sh play-totals           # Total play count and duration

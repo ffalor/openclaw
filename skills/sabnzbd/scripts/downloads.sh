@@ -13,16 +13,12 @@
 set -euo pipefail
 
 HOST="${CLAWARR_HOST:-}"
+CLAWARR_SCHEME="${CLAWARR_SCHEME:-http}"
 SABNZBD_KEY="${SABNZBD_KEY:-}"
-SABNZBD_PORT="${SABNZBD_PORT:-38080}"
+SABNZBD_PORT="${SABNZBD_PORT:-8081}"
 
 if [[ -z "$HOST" ]]; then
   echo "❌ Error: CLAWARR_HOST not set"
-  exit 1
-fi
-
-if [[ -z "$SABNZBD_KEY" ]]; then
-  echo "❌ Error: SABNZBD_KEY not set"
   exit 1
 fi
 
@@ -42,21 +38,26 @@ sabnzbd_api() {
   shift
   local params="$*"
   
-  local url="http://${HOST}:${SABNZBD_PORT}/api?apikey=${SABNZBD_KEY}&mode=${mode}&output=json"
+  if [[ -z "$SABNZBD_KEY" ]]; then
+    echo "❌ SABNZBD_KEY not set" >&2
+    return 1
+  fi
+
+  local url="${CLAWARR_SCHEME}://${HOST}:${SABNZBD_PORT}/api?apikey=${SABNZBD_KEY}&mode=${mode}&output=json"
   if [[ -n "$params" ]]; then
     url="${url}&${params}"
   fi
   
-  curl -sf "$url"
+  curl -fsS --connect-timeout 3 --max-time 20 "$url" 2>/dev/null
 }
 
 # Command: active
 cmd_active() {
-  echo "⬇️  Currently Downloading"
+  echo "⬇️  SABnzbd Queue"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
   local queue
-  queue=$(sabnzbd_api "queue")
+  queue=$(sabnzbd_api "queue" "limit=50" || echo '{}')
   
   local paused
   paused=$(echo "$queue" | jq -r '.queue.paused')
@@ -79,12 +80,12 @@ cmd_active() {
   echo ""
   
   local slots
-  slots=$(echo "$queue" | jq '.queue.slots | length')
+  slots=$(echo "$queue" | jq '.queue.noofslots_total // .queue.noofslots // (.queue.slots | length) // 0')
   
   if [[ $slots -eq 0 ]]; then
     echo "  No active downloads"
   else
-    echo "  Active Downloads:"
+    echo "  Queue Items (showing up to 50):"
     echo "$queue" | jq -r '.queue.slots[] | 
       "    \(.filename)
       Size: \(.size) | Progress: \(.percentage)% | ETA: \(.timeleft)
@@ -100,7 +101,7 @@ cmd_speed() {
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
   local queue
-  queue=$(sabnzbd_api "queue")
+  queue=$(sabnzbd_api "queue" "limit=1" || echo '{}')
   
   local speed
   speed=$(echo "$queue" | jq -r '.queue.speed')
@@ -123,12 +124,15 @@ cmd_speed() {
 # Command: history
 cmd_history() {
   local count="${1:-20}"
+
+  [[ "$count" =~ ^[0-9]+$ ]] || count=20
+  (( count > 100 )) && count=100
   
   echo "📜 Download History (Last $count)"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
   local history
-  history=$(sabnzbd_api "history" "limit=${count}")
+  history=$(sabnzbd_api "history" "limit=${count}" || echo '{}')
   
   local slots
   slots=$(echo "$history" | jq '.history.slots | length')
@@ -176,18 +180,18 @@ cmd_queue() {
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
   local queue
-  queue=$(sabnzbd_api "queue")
+  queue=$(sabnzbd_api "queue" "limit=50" || echo '{}')
   
   local total_size
   total_size=$(echo "$queue" | jq -r '.queue.size')
   local size_left
   size_left=$(echo "$queue" | jq -r '.queue.sizeleft')
   local slots
-  slots=$(echo "$queue" | jq '.queue.slots | length')
+  slots=$(echo "$queue" | jq '.queue.noofslots_total // .queue.noofslots // (.queue.slots | length) // 0')
   
   echo "  Total Queue Size: $total_size"
   echo "  Remaining: $size_left"
-  echo "  Items: $slots"
+  echo "  Queue Items: $slots"
   echo ""
   
   if [[ $slots -eq 0 ]]; then
@@ -208,6 +212,11 @@ cmd_queue() {
 
 # Main command router
 COMMAND="${1:-help}"
+
+if [[ -z "$SABNZBD_KEY" && "$COMMAND" != "help" && "$COMMAND" != "--help" && "$COMMAND" != "-h" ]]; then
+  echo "⚠️  SABNZBD_KEY not set; skipping SABnzbd command"
+  exit 0
+fi
 
 case "$COMMAND" in
   active)  cmd_active ;;

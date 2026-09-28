@@ -6,27 +6,31 @@
 set -euo pipefail
 
 HOST="${CLAWARR_HOST:-}"
+CLAWARR_SCHEME="${CLAWARR_SCHEME:-http}"
 API_KEY="${PROWLARR_KEY:-}"
+PROWLARR_PORT="${PROWLARR_PORT:-9696}"
 BASE_URL=""
 
 init() {
   if [[ -z "$HOST" ]]; then
     echo "Error: CLAWARR_HOST not set" >&2; exit 1
   fi
-  if [[ -z "$API_KEY" ]]; then
-    echo "Error: PROWLARR_KEY not set" >&2; exit 1
-  fi
-  BASE_URL="http://${HOST}:9696"
+  BASE_URL="${CLAWARR_SCHEME}://${HOST}:${PROWLARR_PORT}"
 }
 
 api() {
   local method="${1:-GET}"
   local endpoint="$2"
   shift 2
-  curl -sf -X "$method" \
+  if [[ -z "$API_KEY" ]]; then
+    [[ "$method" == "GET" ]] && { printf '[]'; return 0; }
+    echo "Error: PROWLARR_KEY not set" >&2
+    return 1
+  fi
+  curl -fsS --connect-timeout 3 --max-time 20 -X "$method" \
     -H "X-Api-Key: ${API_KEY}" \
     -H "Content-Type: application/json" \
-    "${BASE_URL}/api/v1${endpoint}" "$@" 2>/dev/null
+    "${BASE_URL}/api/v1${endpoint}" "$@" 2>/dev/null || { [[ "$method" == "GET" ]] && printf '[]'; }
 }
 
 cmd_indexers() {
@@ -148,7 +152,7 @@ cmd_add_app() {
     readarr) impl="Readarr" ;;
     *) echo "Unknown app type: ${app_type}" >&2; exit 1 ;;
   esac
-  local prowlarr_url="http://${HOST}:9696"
+  local prowlarr_url="${CLAWARR_SCHEME}://${HOST}:${PROWLARR_PORT}"
   local payload
   payload=$(cat <<EOF
 {
@@ -206,6 +210,8 @@ cmd_status() {
 
 cmd_logs() {
   local count="${1:-20}"
+  [[ "$count" =~ ^[0-9]+$ ]] || count=20
+  (( count > 100 )) && count=100
   echo "📋 Prowlarr Logs (last ${count})"
   echo ""
   api GET "/log?pageSize=${count}&sortDirection=descending&sortKey=time" | \
@@ -230,10 +236,16 @@ Commands:
 Environment:
   CLAWARR_HOST          Host IP/hostname
   PROWLARR_KEY          Prowlarr API key
+  PROWLARR_PORT         Prowlarr HTTP port (default: 9696)
 EOF
 }
 
 init
+
+if [[ -z "$API_KEY" && "${1:-}" != "help" && "${1:-}" != "--help" && "${1:-}" != "-h" ]]; then
+  echo "⚠️  PROWLARR_KEY not set; skipping Prowlarr command"
+  exit 0
+fi
 
 case "${1:-}" in
   indexers) cmd_indexers ;;

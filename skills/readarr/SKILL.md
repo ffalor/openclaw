@@ -7,7 +7,7 @@ metadata:
 
 # Readarr
 
-Manage your Readarr ebook/audiobook library directly through its REST API. No scripts ship with this skill — upstream provides no Readarr scripts — so all workflows below use `curl` against the API. Reference docs are verbatim extracts from the upstream `clawarr-suite` bundle.
+Manage your Readarr ebook/audiobook library with `scripts/library.sh` (stats, quality, missing, recent, disk) plus direct API calls for author/book management. Reference docs are verbatim extracts from the upstream `clawarr-suite` bundle.
 
 ## Prerequisites
 
@@ -24,7 +24,19 @@ export READARR_KEY=jkl012...
 
 A missing sibling key (`SONARR_KEY`, `RADARR_KEY`, `LIDARR_KEY`) only disables that app — Readarr functionality is unaffected.
 
-Readarr API: `http://$CLAWARR_HOST:8787/api/v1`, auth header `X-Api-Key: $READARR_KEY`. Full endpoint list: `references/api-endpoints.md`.
+Readarr API: `http://$CLAWARR_HOST:8787/api/v1` (or `$READARR_PORT` override), auth header `X-Api-Key: $READARR_KEY`. Full endpoint list: `references/api-endpoints.md`.
+
+## Library analytics (`scripts/library.sh`)
+
+```bash
+scripts/library.sh stats readarr       # Overall library stats
+scripts/library.sh quality readarr     # Quality profile breakdown
+scripts/library.sh missing readarr     # Missing/wanted books
+scripts/library.sh unmonitored readarr # Unmonitored authors
+scripts/library.sh recent readarr [d]  # Recently added (default: 7 days)
+scripts/library.sh nofiles readarr     # Monitored but no files
+scripts/library.sh disk readarr        # Disk usage by root folder
+```
 
 ## API Workflows
 
