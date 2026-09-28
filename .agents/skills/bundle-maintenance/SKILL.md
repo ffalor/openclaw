@@ -2,7 +2,7 @@
 name: bundle-maintenance
 description: >
   Maintain this Agent Plugins bundle repo (ffalor/openclaw). Use when adding a
-  skill under plugins/ffalor-plugins/skills/, editing plugin.json or
+  skill under plugins/clawarr/skills/, editing plugin.json or
   .claude-plugin/marketplace.json, or
   verifying bundle layout conformance before commit.
 ---
@@ -10,8 +10,8 @@ description: >
 # Bundle maintenance
 
 This repo is a marketplace (`.claude-plugin/marketplace.json` at the root)
-whose one plugin, `plugins/ffalor-plugins/`, is an
-[Agent Plugins 1.0.0](https://agent-plugins.org) bundle.
+whose plugins each live in `plugins/<name>/` as an
+[Agent Plugins 1.0.0](https://agent-plugins.org) bundle (currently `clawarr`).
 It intentionally ships **no** `openclaw.plugin.json`, so clients load it as a
 content-only bundle (skills + MCP config, no in-process runtime).
 
@@ -37,7 +37,7 @@ Before changing manifests or layout, read the spec:
 2. **`$schema` must be exactly**
    `https://agent-plugins.org/schemas/1.0.0/plugin.schema.json`.
 3. **`name` constraints:** 1–64 chars, `a-z 0-9 - .` only, start/end
-   alphanumeric, no `--` or `..`. Current: `ffalor-plugins`.
+   alphanumeric, no `--` or `..`. Current: `clawarr`.
 4. **`author` object** may contain only `name`/`email`/`url` strings.
 5. **Skills:** one per immediate child dir of `skills/` containing `SKILL.md`.
    Never nest deeper — deeper `SKILL.md` files are NOT discovered. Dir name
@@ -52,12 +52,13 @@ Before changing manifests or layout, read the spec:
    `args`/`env`/`cwd` only; never put secrets in `env`/`headers`.
 8. **Never add `openclaw.plugin.json`.** OpenClaw checks native manifest
    first — its presence flips detection from bundle to native plugin.
-9. **Single bundle manifest.** Inside `plugins/ffalor-plugins/`,
+9. **Single manifest per bundle.** Inside each `plugins/<name>/`,
    `plugin.json` is the only manifest — no `openclaw.plugin.json` or
    `package.json` with `openclaw.extensions` (flip detection to native), no
    `.claude-plugin/` (would win detection as Claude format). The root
    `.claude-plugin/` holds only `marketplace.json`. Bump `version` in the
-   bundle `plugin.json` **and** its marketplace entry together. Client-specific
+   bundle `plugin.json` **and** its marketplace entry together. Every
+   `plugins/<name>/` must have a marketplace entry, and vice versa. Client-specific
    knobs belong under `extensions.<reverse-domain>`, never as new top-level
    fields.
 10. **Marketplace sources are relative paths only** (`./plugins/<name>`);
@@ -65,7 +66,7 @@ Before changing manifests or layout, read the spec:
 
 ## Adding a skill
 
-1. Copy in: `plugins/ffalor-plugins/skills/<name>/SKILL.md` + helpers alongside (`scripts/`, `references/`).
+1. Copy in: `plugins/clawarr/skills/<name>/SKILL.md` + helpers alongside (`scripts/`, `references/`).
 2. Confirm `SKILL.md` frontmatter has `name:` (= dir name) and `description:`.
 3. Confirm all relative refs resolve inside `skills/<name>/`.
 4. Run validation below, bump both manifest versions, commit.
@@ -77,30 +78,32 @@ export D="$(git rev-parse --show-toplevel)"
 python3 - <<'EOF'
 import json, re, os
 D = os.environ.get("D", ".")
-B = f"{D}/plugins/ffalor-plugins"
-m = json.load(open(f"{B}/plugin.json"))
 mk = json.load(open(f"{D}/.claude-plugin/marketplace.json"))
-e = next(p for p in mk["plugins"] if p["name"] == m["name"])
-assert e["source"] == "./plugins/ffalor-plugins" and e.get("version") == m["version"], "marketplace entry out of sync"
-assert not os.path.exists(f"{B}/package.json") and not os.path.exists(f"{B}/openclaw.plugin.json")
-allowed = {"$schema","name","version","description","author","homepage","repository","license","keywords","extensions"}
-assert set(m) <= allowed, f"unknown fields: {set(m)-allowed}"
-assert m["$schema"] == "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
-assert re.fullmatch(r'[a-z0-9]+(?:[.-][a-z0-9]+)*', m["name"]) and len(m["name"]) <= 64
-assert set(m.get("author", {})) <= {"name","email","url"}
-for d in os.listdir(f"{B}/skills"):
-    p = f"{B}/skills/{d}/SKILL.md"
-    assert os.path.isfile(p), f"skills/{d} has no SKILL.md"
-print("manifest + discovery OK:", m["name"], m["version"])
+dirs = sorted(os.listdir(f"{D}/plugins"))
+assert sorted(e["name"] for e in mk["plugins"]) == dirs, "marketplace entries != plugins/ dirs"
+for e in mk["plugins"]:
+  B = f"{D}/plugins/{e['name']}"
+  assert e["source"] == f"./plugins/{e['name']}", e["source"]
+  m = json.load(open(f"{B}/plugin.json"))
+  assert m["name"] == e["name"] and e.get("version") == m["version"], f"{e['name']}: marketplace entry out of sync"
+  assert not os.path.exists(f"{B}/package.json") and not os.path.exists(f"{B}/openclaw.plugin.json")
+  allowed = {"$schema","name","version","description","author","homepage","repository","license","keywords","extensions"}
+  assert set(m) <= allowed, f"unknown fields: {set(m)-allowed}"
+  assert m["$schema"] == "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+  assert re.fullmatch(r'[a-z0-9]+(?:[.-][a-z0-9]+)*', m["name"]) and len(m["name"]) <= 64
+  assert set(m.get("author", {})) <= {"name","email","url"}
+  for d in os.listdir(f"{B}/skills"):
+    assert os.path.isfile(f"{B}/skills/{d}/SKILL.md"), f"{e['name']}/skills/{d} has no SKILL.md"
+  print("OK:", m["name"], m["version"])
 EOF
-for f in plugins/ffalor-plugins/skills/*/scripts/*.sh; do bash -n "$f" || exit 1; done && echo "scripts OK"
+for f in plugins/*/skills/*/scripts/*.sh; do bash -n "$f" || exit 1; done && echo "scripts OK"
 git status --short
 ```
 
 Then install-test on a machine with the OpenClaw CLI:
 
 ```bash
-openclaw plugins install -l <repo-path>/plugins/ffalor-plugins
-openclaw plugins marketplace list <repo-path>   # marketplace sees ffalor-plugins
-openclaw plugins inspect ffalor-plugins   # expect Format: bundle, Bundle format: agent
+openclaw plugins install -l <repo-path>/plugins/clawarr
+openclaw plugins marketplace list <repo-path>   # marketplace sees clawarr
+openclaw plugins inspect clawarr   # expect Format: bundle, Bundle format: agent
 ```

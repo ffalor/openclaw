@@ -1,0 +1,12 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "author": {
+    "name": "ffalor"
+  },
+  "description": "ClawARR media-stack skills \u2014 core setup/diagnostics plus one skill per service: Sonarr, Radarr, Lidarr, Readarr, Prowlarr, Plex, Tautulli, SABnzbd, Overseerr, Bazarr, Trakt, and more.",
+  "homepage": "https://github.com/ffalor/openclaw",
+  "license": "MIT",
+  "name": "clawarr",
+  "repository": "https://github.com/ffalor/openclaw",
+  "version": "2.0.0"
+}

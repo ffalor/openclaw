@@ -1,7 +1,16 @@
-# ffalor-plugins
+# ffalor/openclaw
 
-Personal [OpenClaw](https://openclaw.ai) skill bundle. Install the whole repo
-as one bundle; each directory under `plugins/ffalor-plugins/skills/` loads as an individual skill.
+Personal [OpenClaw](https://openclaw.ai) plugin marketplace. Each directory
+under `plugins/` is a separately installable bundle, listed in
+`.claude-plugin/marketplace.json`.
+
+## Plugins
+
+| Plugin | What it is |
+|--------|------------|
+| `clawarr` | ClawARR media-stack skills; each directory under `plugins/clawarr/skills/` loads as an individual skill |
+
+### `clawarr` skills
 
 ## Skills
 
@@ -34,12 +43,12 @@ split from one 20-key mega-skill so each skill loads on its own keys.
 
 ```text
 .claude-plugin/marketplace.json            # marketplace catalog (lists plugins by relative path)
-plugins/ffalor-plugins/plugin.json         # Agent Plugins bundle manifest (single source of truth for the bundle)
-plugins/ffalor-plugins/skills/<name>/SKILL.md      # one skill per directory; SKILL.md required
-plugins/ffalor-plugins/skills/<name>/scripts/      # helper scripts (kept next to SKILL.md so relative refs hold)
-plugins/ffalor-plugins/skills/<name>/references/   # reference docs
-plugins/ffalor-plugins/skills/<name>/assets/       # skill icon, images
-plugins/ffalor-plugins/skills/<name>/ui/           # setup page (in clawarr-core; reference copy, not loaded)
+plugins/clawarr/plugin.json         # Agent Plugins bundle manifest (single source of truth for the bundle)
+plugins/clawarr/skills/<name>/SKILL.md      # one skill per directory; SKILL.md required
+plugins/clawarr/skills/<name>/scripts/      # helper scripts (kept next to SKILL.md so relative refs hold)
+plugins/clawarr/skills/<name>/references/   # reference docs
+plugins/clawarr/skills/<name>/assets/       # skill icon, images
+plugins/clawarr/skills/<name>/ui/           # setup page (in clawarr-core; reference copy, not loaded)
 ```
 
 Why this shape: the repo root is a **marketplace**; each plugin lives in its own
@@ -64,15 +73,15 @@ frontmatter (`metadata.openclaw`), so every skill loads on its own keys.
 ```bash
 # From the marketplace (this repo)
 openclaw plugins marketplace list ffalor/openclaw
-openclaw plugins install ffalor-plugins --marketplace ffalor/openclaw
+openclaw plugins install clawarr --marketplace ffalor/openclaw
 
 # Local checkout (Gateway host path) — install the bundle dir directly
-openclaw plugins install ./openclaw/plugins/ffalor-plugins
-openclaw plugins install -l ./openclaw/plugins/ffalor-plugins   # link, for live editing
+openclaw plugins install ./openclaw/plugins/clawarr
+openclaw plugins install -l ./openclaw/plugins/clawarr   # link, for live editing
 
 # Verify
 openclaw plugins list
-openclaw plugins inspect ffalor-plugins   # expect Format: bundle, Bundle format: agent
+openclaw plugins inspect clawarr   # expect Format: bundle, Bundle format: agent
 ```
 
 Mapped features are available in the next session (no Gateway restart needed
@@ -85,7 +94,7 @@ Each skill declares its own required keys in `SKILL.md` frontmatter
 plus 0–2 env vars; kometa/recyclarr/unpackerr need `docker` *or* `ssh` via
 `anyBins`, and lidarr also needs `bc`) and loads as soon as those exist — set
 only what you use. See
-[`plugins/ffalor-plugins/skills/clawarr-core/.env.example`](plugins/ffalor-plugins/skills/clawarr-core/.env.example)
+[`plugins/clawarr/skills/clawarr-core/.env.example`](plugins/clawarr/skills/clawarr-core/.env.example)
 for endpoint overrides.
 
 Per-skill enablement (bundle installed, but only some skills active):
@@ -100,13 +109,21 @@ Per-skill enablement (bundle installed, but only some skills active):
 }
 ```
 
-## Adding another skill
+## Adding another plugin
 
-1. Copy the skill dir in: `plugins/ffalor-plugins/skills/<name>/SKILL.md` (+ helpers alongside it).
+1. Create `plugins/<name>/plugin.json` (copy `plugins/clawarr/plugin.json`, change
+   `name`/`description`/`version`) and put its skills in `plugins/<name>/skills/`.
+2. Add an entry to `.claude-plugin/marketplace.json` with
+   `"source": "./plugins/<name>"` and the same `version`.
+3. Install: `openclaw plugins install <name> --marketplace ffalor/openclaw`.
+
+## Adding a skill to clawarr
+
+1. Copy the skill dir in: `plugins/clawarr/skills/<name>/SKILL.md` (+ helpers alongside it).
 2. Keep every helper/reference the skill mentions **inside** `skills/<name>/`
    (bundle skill roots must stay inside the plugin root — boundary-checked).
-3. Bump `version` in `plugins/ffalor-plugins/plugin.json` **and** the matching
-   entry in `.claude-plugin/marketplace.json`, commit, then `openclaw plugins update ffalor-plugins`.
+3. Bump `version` in `plugins/clawarr/plugin.json` **and** the matching
+   entry in `.claude-plugin/marketplace.json`, commit, then `openclaw plugins update clawarr`.
 
 ## Repo maintenance
 
