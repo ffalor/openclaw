@@ -1,7 +1,7 @@
 ---
 name: lidarr
 description: Manage your Lidarr music library — search artists, inspect stats and missing albums.
-metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "LIDARR_KEY"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq", "bc"], "env": ["CLAWARR_HOST", "LIDARR_KEY"]}}}
 ---
 
 # Lidarr
@@ -16,7 +16,7 @@ Manage your Lidarr music library: search for artists and inspect library health.
 | `CLAWARR_HOST` | Host or IP running Lidarr (e.g. `192.168.1.100`) |
 | `LIDARR_KEY` | Lidarr API key (Settings → General → Security → API Key) |
 
-Optional text/math helpers (`sed`, `bc`) are used by `library.sh` where available. A missing sibling key (`SONARR_KEY`, `RADARR_KEY`) only disables that app's section in shared scripts — Lidarr functionality is unaffected.
+`bc` is required: `library.sh stats lidarr` uses it unguarded for size math. A missing sibling key (`SONARR_KEY`, `RADARR_KEY`) only disables that app's section in shared scripts — Lidarr functionality is unaffected.
 
 ```bash
 export CLAWARR_HOST=192.168.1.100

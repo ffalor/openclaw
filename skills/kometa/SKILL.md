@@ -1,7 +1,7 @@
 ---
 name: kometa
 description: Plex collection, overlay, and metadata automation via kometa.sh and Kometa defaults.
-metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["KOMETA_SSH"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "anyBins": ["docker", "ssh"], "env": []}}}
 ---
 
 # Kometa
@@ -12,13 +12,13 @@ Plex collection, poster-overlay, and metadata automation (formerly Plex Meta Man
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `KOMETA_SSH` | SSH host for the Docker host running Kometa | — |
+| `KOMETA_SSH` | SSH host for the Docker host running Kometa (optional; unset = local Docker) | — |
 | `PLEX_TOKEN` | Plex token (optional; needed for some Plex lookups) | — |
 | `CLAWARR_HOST` | Service host (used by some status paths) | — |
 | `KOMETA_DOCKER_CMD` / `KOMETA_CONTAINER` | Docker binary / container overrides | `docker` / `kometa` |
 | `DOCKER_CONFIG_BASE` | Docker config root for `kometa/config.yml` lookup (optional) | `/volume1/docker` |
 
-Needs `docker` and `ssh` (local or remote) as optional tools to reach the container; without `KOMETA_SSH` the script targets the local Docker daemon. `PLEX_TOKEN` is optional — set it when commands need direct Plex API access. See `references/companion-services.md` (Kometa section) for `config.yml` setup and available collection/overlay defaults.
+Needs `docker` (local) or `ssh` (remote) — the skill loads when either is on PATH; without `KOMETA_SSH` the script targets the local Docker daemon. `PLEX_TOKEN` is optional — set it when commands need direct Plex API access. See `references/companion-services.md` (Kometa section) for `config.yml` setup and available collection/overlay defaults.
 
 ## Commands (`scripts/kometa.sh`)
 

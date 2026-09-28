@@ -38,7 +38,7 @@ Bootstrap skill for a self-hosted *arr media stack. Handles guided setup and API
 
 All service keys are optional — the skill degrades gracefully when a key is absent (unconfigured services are skipped, not errors).
 
-Optional helpers: `bc` and `sed` are used for math and text processing in `dashboard.sh`; everything else works without them.
+`dashboard.sh` also needs `bc` (it is not gated on it, so the skill loads without `bc`, but the dashboard fails if it is missing); everything else works without it.
 
 ## Quick Start
 

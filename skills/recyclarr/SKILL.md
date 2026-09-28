@@ -1,7 +1,7 @@
 ---
 name: recyclarr
 description: Sync TRaSH Guides quality profiles to Sonarr and Radarr via recyclarr.sh.
-metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["RECYCLARR_SSH"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash"], "anyBins": ["recyclarr", "docker", "ssh"], "env": []}}}
 ---
 
 # Recyclarr
@@ -12,13 +12,13 @@ TRaSH Guides quality-profile sync for Sonarr and Radarr. Keeps quality profiles 
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `RECYCLARR_SSH` | SSH host for the Docker host running recyclarr | — |
+| `RECYCLARR_SSH` | SSH host for the Docker host running recyclarr (optional; unset = local Docker) | — |
 | `CLAWARR_HOST` | Service host (used by some status paths) | — |
 | `RECYCLARR_DOCKER_CMD` | Docker binary override | `docker` |
 | `RECYCLARR_CONTAINER` | Container name override | `recyclarr` |
 | `DOCKER_CONFIG_BASE` | Docker config root for `recyclarr.yml` lookup (optional) | `/volume1/docker` |
 
-Needs `ssh` and `docker` (local or remote) to reach the container; without `RECYCLARR_SSH` the script targets the local Docker daemon. See `references/companion-services.md` (Recyclarr section) for `recyclarr.yml` setup.
+Needs `docker` (local) or `ssh` (remote) or a native `recyclarr` install — the skill loads when any is on PATH; without `RECYCLARR_SSH` the script targets the local Docker daemon. See `references/companion-services.md` (Recyclarr section) for `recyclarr.yml` setup.
 
 ## Commands (`scripts/recyclarr.sh`)
 

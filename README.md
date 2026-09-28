@@ -79,8 +79,10 @@ for install; restart if the Gateway was stopped).
 ## Configure
 
 Each skill declares its own required keys in `SKILL.md` frontmatter
-(`bins: bash, curl, jq` plus 0–4 env vars) and loads as soon as its keys
-exist — set only what you use. See
+(only the bins and env vars its scripts hard-require: usually `bash, curl, jq`
+plus 0–2 env vars; kometa/recyclarr/unpackerr need `docker` *or* `ssh` via
+`anyBins`, and lidarr also needs `bc`) and loads as soon as those exist — set
+only what you use. See
 [`skills/clawarr-core/.env.example`](skills/clawarr-core/.env.example)
 for endpoint overrides.
 

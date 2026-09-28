@@ -1,7 +1,7 @@
 ---
 name: unpackerr
 description: Monitor Unpackerr archive extraction for *arr download queues via unpackerr.sh.
-metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["UNPACKERR_SSH"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash"], "anyBins": ["docker", "ssh"], "env": []}}}
 ---
 
 # Unpackerr
@@ -12,12 +12,12 @@ Archive-extraction monitoring for Sonarr/Radarr/Lidarr download queues. Unpacker
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `UNPACKERR_SSH` | SSH host for the Docker host running unpackerr | — |
+| `UNPACKERR_SSH` | SSH host for the Docker host running unpackerr (optional; unset = local Docker) | — |
 | `UNPACKERR_DOCKER_CMD` | Docker binary override | `docker` |
 | `UNPACKERR_CONTAINER` | Container name override | `unpackerr` |
 | `DOCKER_CONFIG_BASE` | Docker config root (optional, unused here) | `/volume1/docker` |
 
-Needs `ssh` and `docker` (local or remote) to reach the container; without `UNPACKERR_SSH` the script targets the local Docker daemon. The container itself is configured via `UN_SONARR_*` / `UN_RADARR_*` env vars — see `references/companion-services.md` (Unpackerr section).
+Needs `docker` (local) or `ssh` (remote) — the skill loads when any is on PATH; without `UNPACKERR_SSH` the script targets the local Docker daemon. The container itself is configured via `UN_SONARR_*` / `UN_RADARR_*` env vars — see `references/companion-services.md` (Unpackerr section).
 
 ## Commands (`scripts/unpackerr.sh`)
 

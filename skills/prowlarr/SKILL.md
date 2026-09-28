@@ -46,6 +46,8 @@ scripts/prowlarr.sh logs [count]          # Recent logs
 
 ### Indexer status (`indexers.sh`)
 
+Indexer success-rate stats use `bc`; install it if those lines error.
+
 ```bash
 scripts/indexers.sh list      # List configured indexers with status
 scripts/indexers.sh test [id] # Test indexer connectivity (all or specific ID)
