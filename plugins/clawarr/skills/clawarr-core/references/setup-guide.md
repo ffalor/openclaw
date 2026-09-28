@@ -558,9 +558,13 @@ scripts/queue.sh
 
 ### 9. Store Configuration
 
-Create `.env` file:
+Put the keys in OpenClaw's global env file, `~/.openclaw/.env` (or
+`$OPENCLAW_STATE_DIR/.env`). The Gateway loads it at startup, which is what
+satisfies each skill's `requires.env` gate — a file you only `source` in your
+own shell is invisible to the Gateway, so the skills would never load.
+
 ```bash
-# ~/.clawarr.env
+# ~/.openclaw/.env
 CLAWARR_HOST=192.168.1.100
 SONARR_KEY=abc123...
 RADARR_KEY=def456...
@@ -573,9 +577,28 @@ PLEX_TOKEN=vwx234...
 TAUTULLI_KEY=yz567...
 ```
 
-Source before using scripts:
+Lock it down and restart the Gateway so it picks up the new values:
 ```bash
-source ~/.clawarr.env
+chmod 600 ~/.openclaw/.env
+```
+
+Notes:
+- Include only the services you run; unset keys are skipped, not errors.
+- Values already in the Gateway's process environment win over this file.
+- Don't use a workspace `.env` (in the working directory) for keys — OpenClaw
+  treats it as low-trust and ignores credentials there.
+- **Docker:** `~/.openclaw` must be a mapped volume or the file is lost when
+  the container is recreated. The official image runs as `node`
+  (`/home/node/.openclaw`); root-based templates (e.g. Unraid) use
+  `/root/.openclaw`. On Unraid that's typically
+  `/mnt/user/appdata/openclaw/config/.env` on the host.
+- **Per-skill scoping (optional):** instead of the global file, set keys under
+  `skills.entries.<skill>.env` in `~/.openclaw/openclaw.json` so each skill
+  only sees its own. These are injected for host runs only, not sandboxed ones.
+
+To run the scripts by hand from a shell, export the same file first:
+```bash
+set -a; source ~/.openclaw/.env; set +a
 scripts/status.sh
 ```
 
