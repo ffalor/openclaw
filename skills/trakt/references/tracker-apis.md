@@ -1,6 +1,7 @@
-# Media Tracker API Reference
+# Trakt.tv API Reference
 
 ## Trakt.tv API
+
 
 **Base URL:** `https://api.trakt.tv`
 **API Version:** 2
@@ -92,92 +93,8 @@ trakt-api-key: {client_id}
 - `tmdb` - TMDb ID
 - `slug` - Trakt slug (url-friendly-title)
 
-## Simkl API
-
-**Base URL:** `https://api.simkl.com`
-**Authentication:** OAuth 2.0 (authorization code flow)
-**Rate Limits:** Varies by endpoint
-
-### Authentication Flow
-
-1. **Generate Authorization URL**
-   - User visits: `https://simkl.com/oauth/authorize?response_type=code&client_id=...&redirect_uri=...`
-
-2. **Exchange Code for Token**
-   - POST `/oauth/token`
-   - Body: `{"code": "...", "client_id": "...", "client_secret": "...", "grant_type": "authorization_code"}`
-
-### Common Endpoints
-
-**User:**
-- GET `/users/settings` - Current user settings
-
-**History:**
-- GET `/sync/all-items/movies/watched` - Watched movies
-- GET `/sync/all-items/shows/watched` - Watched shows
-- GET `/sync/all-items/anime/watched` - Watched anime
-
-**Watchlist:**
-- GET `/sync/watchlist/movies` - Movie watchlist
-- GET `/sync/watchlist/shows` - Show watchlist
-
-**Sync:**
-- POST `/sync/history` - Add watch history
-- POST `/sync/watched` - Mark as watched
-
-### Headers Required
-
-```
-Content-Type: application/json
-Authorization: Bearer {access_token}
-simkl-api-key: {client_id}
-```
-
-## Letterboxd API
-
-**Base URL:** `https://api.letterboxd.com/api/v0`
-**Authentication:** OAuth 2.0 (requires API application approval)
-**Status:** Requires approved API access
-
-### CSV Import/Export Format
-
-Letterboxd supports CSV import/export for diary entries:
-
-**CSV Header:**
-```
-Date,Letterboxd URI,Name,Year,Directors,Rating,Rewatch,Tags,Watched Date
-```
-
-**Example Row:**
-```
-2024-01-15,,Inception,2010,Christopher Nolan,5,No,mind-bending,2024-01-15
-```
-
-**Rating Scale:** 0.5 to 5 stars (in 0.5 increments)
-
-### Public Profile Scraping
-
-Public profiles are accessible at:
-- `https://letterboxd.com/{username}/`
-- `https://letterboxd.com/{username}/films/diary/`
-
-Note: Web scraping is fragile and subject to change. Official API preferred.
-
-## TV Time
-
-**Status:** No public API available
-
-### Export Format
-
-TV Time provides CSV export at:
-- `https://www.tvtime.com/export`
-
-Export contains:
-- Show name
-- Episode watched
-- Date watched
-
 ## Plex + Tautulli Integration
+
 
 ### Tautulli History Endpoint
 
@@ -230,6 +147,7 @@ When syncing large libraries:
 
 ## Error Handling
 
+
 ### Common HTTP Status Codes
 
 - **200** - Success
@@ -254,6 +172,7 @@ When syncing large libraries:
 4. **Other errors** - Report and skip item
 
 ## Best Practices
+
 
 ### Token Management
 
@@ -293,22 +212,3 @@ Track last sync time to avoid re-syncing:
 - Implement exponential backoff
 - Use bulk endpoints for large operations
 - Cache results where possible
-
-## Testing Endpoints
-
-### Public Test Endpoints (no auth required)
-
-**Trakt:**
-- GET `/movies/trending?limit=5`
-- GET `/search/movie?query=inception`
-
-**Simkl:**
-- Requires API key but no user auth for search
-
-### Development Tips
-
-1. Use `curl -v` to inspect headers
-2. Save sample responses for offline testing
-3. Test with small datasets first
-4. Validate JSON payloads before sending
-5. Log all API errors for debugging

@@ -631,10 +631,9 @@ export PATH="$HOME/.local/bin:$PATH"
 
 ### Step 2: Configure via ClawARR
 ```bash
-cd /path/to/clawarr-suite/scripts
-./trackers.sh setup  # Option 1 (Trakt auth)
-./trackers.sh setup  # Option 5 (Traktarr config)
-./trackers.sh setup  # Option 6 (Retraktarr config)
+./scripts/trackers.sh setup  # Option 1 (Trakt auth)
+./scripts/trackers.sh setup  # Option 5 (Traktarr config)
+./scripts/trackers.sh setup  # Option 6 (Retraktarr config)
 ```
 
 ### Step 3: Test Manually
