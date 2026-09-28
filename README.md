@@ -47,7 +47,9 @@ then client markers, then root `plugin.json` — which is what this repo ships,
 so OpenClaw installs it as an Agent Plugins bundle (`Format: bundle`,
 `Bundle format: agent`). This repo deliberately ships **no**
 `openclaw.plugin.json` and **no** `.claude-plugin/`, so there is exactly one
-manifest and no competing detection path. The bundle stays content-only
+manifest and no competing detection path. A minimal `package.json`
+(no `openclaw` field, no dependencies) exists only as a shim so direct
+`git:` installs work; keep its `version` in sync with `plugin.json`. The bundle stays content-only
 (no in-process runtime, narrower trust boundary).
 
 Scripts are verbatim copies of the upstream skill (some duplicated across
