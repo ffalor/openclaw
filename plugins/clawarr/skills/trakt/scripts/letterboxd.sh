@@ -11,9 +11,17 @@
 
 set -euo pipefail
 
-HOST="${CLAWARR_HOST:-}"
-TAUTULLI_KEY="${TAUTULLI_KEY:-}"
-RADARR_KEY="${RADARR_KEY:-}"
+TAUTULLI_API_KEY="${TAUTULLI_API_KEY:-}"
+RADARR_API_KEY="${RADARR_API_KEY:-}"
+
+# Base URL per service: <SERVICE>_URL, else ${CLAWARR_SCHEME:-http}://$CLAWARR_HOST:<port>
+arr_url() {
+  if [[ -n "$1" ]]; then printf '%s' "${1%/}"
+  elif [[ -n "${CLAWARR_HOST:-}" ]]; then printf '%s://%s:%s' "${CLAWARR_SCHEME:-http}" "$CLAWARR_HOST" "$2"
+  fi
+}
+TAUTULLI_URL="$(arr_url "${TAUTULLI_URL:-}" "${TAUTULLI_PORT:-8181}")"
+RADARR_URL="$(arr_url "${RADARR_URL:-}" "${RADARR_PORT:-7878}")"
 
 if ! command -v jq &> /dev/null; then
   echo "❌ Error: jq is required"
@@ -41,11 +49,11 @@ cmd_export() {
   # CSV header (Letterboxd format)
   echo "Date,Letterboxd URI,Name,Year,Directors,Rating,Rewatch,Tags,Watched Date" > "$output_file"
   
-  if [[ -n "$TAUTULLI_KEY" ]] && [[ -n "$HOST" ]]; then
+  if [[ -n "$TAUTULLI_API_KEY" ]] && [[ -n "$TAUTULLI_URL" ]]; then
     echo "Fetching watch history from Tautulli..."
     
     local history
-    history=$(curl -sf "http://${HOST}:8181/api/v2?apikey=${TAUTULLI_KEY}&cmd=get_history&length=10000&media_type=movie")
+    history=$(curl -sSf "${TAUTULLI_URL}/api/v2?apikey=${TAUTULLI_API_KEY}&cmd=get_history&length=10000&media_type=movie")
     
     if [[ -z "$history" ]]; then
       echo "❌ Failed to fetch Tautulli history"
@@ -82,11 +90,11 @@ cmd_export() {
     echo "Upload at: https://letterboxd.com/import/"
     echo ""
     
-  elif [[ -n "$RADARR_KEY" ]] && [[ -n "$HOST" ]]; then
+  elif [[ -n "$RADARR_API_KEY" ]] && [[ -n "$RADARR_URL" ]]; then
     echo "Fetching movie library from Radarr..."
     
     local movies
-    movies=$(curl -sf -H "X-Api-Key: $RADARR_KEY" "http://${HOST}:7878/api/v3/movie")
+    movies=$(curl -sSf -H "X-Api-Key: $RADARR_API_KEY" "${RADARR_URL}/api/v3/movie")
     
     if [[ -z "$movies" ]]; then
       echo "❌ Failed to fetch Radarr library"
@@ -124,8 +132,8 @@ cmd_export() {
     echo "❌ Neither Tautulli nor Radarr configured"
     echo ""
     echo "Set one of:"
-    echo "  • TAUTULLI_KEY + CLAWARR_HOST (for watch history)"
-    echo "  • RADARR_KEY + CLAWARR_HOST (for library)"
+    echo "  • TAUTULLI_API_KEY + TAUTULLI_URL or CLAWARR_HOST (for watch history)"
+    echo "  • RADARR_API_KEY + RADARR_URL or CLAWARR_HOST (for library)"
     exit 1
   fi
 }

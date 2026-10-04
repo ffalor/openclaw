@@ -1,28 +1,31 @@
 #!/usr/bin/env bash
 # maintainerr.sh - Maintainerr library cleanup management
 # Usage: maintainerr.sh <command> [args...]
-# Requires: CLAWARR_HOST (port 6246)
+# Requires: MAINTAINERR_URL (or CLAWARR_HOST, port 6246)
 
 set -euo pipefail
 
-HOST="${CLAWARR_HOST:-}"
-BASE_URL=""
-PORT="${MAINTAINERR_PORT:-6246}"
+# Base URL per service: <SERVICE>_URL, else ${CLAWARR_SCHEME:-http}://$CLAWARR_HOST:<port>
+arr_url() {
+  if [[ -n "$1" ]]; then printf '%s' "${1%/}"
+  elif [[ -n "${CLAWARR_HOST:-}" ]]; then printf '%s://%s:%s' "${CLAWARR_SCHEME:-http}" "$CLAWARR_HOST" "$2"
+  fi
+}
+BASE_URL="$(arr_url "${MAINTAINERR_URL:-}" "${MAINTAINERR_PORT:-6246}")"
 
 init() {
-  if [[ -z "$HOST" ]]; then
-    echo "Error: CLAWARR_HOST not set" >&2; exit 1
+  if [[ -z "$BASE_URL" ]]; then
+    echo "Error: MAINTAINERR_URL (or CLAWARR_HOST) not set" >&2; exit 1
   fi
-  BASE_URL="http://${HOST}:${PORT}"
 }
 
 api() {
   local method="${1:-GET}"
   local endpoint="$2"
   shift 2
-  curl -sf -X "$method" \
+  curl -sSf -X "$method" \
     -H "Content-Type: application/json" \
-    "${BASE_URL}/api${endpoint}" "$@" 2>/dev/null
+    "${BASE_URL}/api${endpoint}" "$@"
 }
 
 cmd_status() {
@@ -144,7 +147,8 @@ Commands:
   logs                  View activity log
 
 Environment:
-  CLAWARR_HOST          Host IP/hostname
+  MAINTAINERR_URL       Base URL, e.g. http://192.168.1.100:6246
+  CLAWARR_HOST          Fallback host when MAINTAINERR_URL is unset
   MAINTAINERR_PORT      Port (default: 6246)
 
 Common Rules to Create (via web UI):

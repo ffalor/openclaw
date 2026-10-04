@@ -1169,9 +1169,13 @@ cmd_sync_plex() {
   echo ""
   
   # Check for Tautulli
-  if [[ -z "${TAUTULLI_KEY:-}" ]] || [[ -z "${CLAWARR_HOST:-}" ]]; then
+  local tautulli_url="${TAUTULLI_URL:-}"
+  if [[ -z "$tautulli_url" && -n "${CLAWARR_HOST:-}" ]]; then
+    tautulli_url="${CLAWARR_SCHEME:-http}://${CLAWARR_HOST}:${TAUTULLI_PORT:-8181}"
+  fi
+  if [[ -z "${TAUTULLI_API_KEY:-}" ]] || [[ -z "$tautulli_url" ]]; then
     echo "❌ Tautulli not configured"
-    echo "Set: TAUTULLI_KEY and CLAWARR_HOST"
+    echo "Set: TAUTULLI_API_KEY and TAUTULLI_URL (or CLAWARR_HOST)"
     exit 1
   fi
   
@@ -1179,7 +1183,7 @@ cmd_sync_plex() {
   
   # Get watch history from Tautulli
   local tautulli_history
-  tautulli_history=$(curl -sf "http://${CLAWARR_HOST}:8181/api/v2?apikey=${TAUTULLI_KEY}&cmd=get_history&length=500")
+  tautulli_history=$(curl -sSf "${tautulli_url%/}/api/v2?apikey=${TAUTULLI_API_KEY}&cmd=get_history&length=500")
   
   if [[ -z "$tautulli_history" ]]; then
     echo "❌ Failed to fetch Tautulli history"
@@ -1506,19 +1510,28 @@ cmd_traktarr_config() {
     # Get required values
     echo -n "Radarr URL (http://HOST:7878): "
     read -r radarr_url
-    radarr_url="${radarr_url:-http://${CLAWARR_HOST:-localhost}:7878}"
+    radarr_url="${radarr_url:-${RADARR_URL:-http://${CLAWARR_HOST:-localhost}:7878}}"
     
     echo -n "Radarr API Key: "
     read -r radarr_key
-    radarr_key="${radarr_key:-${RADARR_KEY:-}}"
+    radarr_key="${radarr_key:-${RADARR_API_KEY:-}}"
+    # A secret-store sentinel only works through OpenClaw's egress proxy; it is useless in a config file
+    if [[ "$radarr_key" == oc-sent-* ]]; then
+      echo "  ⚠️  RADARR_API_KEY is an OpenClaw store secret and cannot be written to a config file; enter the key manually." >&2
+      radarr_key=""
+    fi
     
     echo -n "Sonarr URL (http://HOST:8989): "
     read -r sonarr_url
-    sonarr_url="${sonarr_url:-http://${CLAWARR_HOST:-localhost}:8989}"
+    sonarr_url="${sonarr_url:-${SONARR_URL:-http://${CLAWARR_HOST:-localhost}:8989}}"
     
     echo -n "Sonarr API Key: "
     read -r sonarr_key
-    sonarr_key="${sonarr_key:-${SONARR_KEY:-}}"
+    sonarr_key="${sonarr_key:-${SONARR_API_KEY:-}}"
+    if [[ "$sonarr_key" == oc-sent-* ]]; then
+      echo "  ⚠️  SONARR_API_KEY is an OpenClaw store secret and cannot be written to a config file; enter the key manually." >&2
+      sonarr_key=""
+    fi
     
     # Create config
     cat > "$config_file" <<EOF
@@ -1746,19 +1759,28 @@ cmd_retraktarr_config() {
     # Get required values
     echo -n "Radarr URL (http://HOST:7878): "
     read -r radarr_url
-    radarr_url="${radarr_url:-http://${CLAWARR_HOST:-localhost}:7878}"
+    radarr_url="${radarr_url:-${RADARR_URL:-http://${CLAWARR_HOST:-localhost}:7878}}"
     
     echo -n "Radarr API Key: "
     read -r radarr_key
-    radarr_key="${radarr_key:-${RADARR_KEY:-}}"
+    radarr_key="${radarr_key:-${RADARR_API_KEY:-}}"
+    # A secret-store sentinel only works through OpenClaw's egress proxy; it is useless in a config file
+    if [[ "$radarr_key" == oc-sent-* ]]; then
+      echo "  ⚠️  RADARR_API_KEY is an OpenClaw store secret and cannot be written to a config file; enter the key manually." >&2
+      radarr_key=""
+    fi
     
     echo -n "Sonarr URL (http://HOST:8989): "
     read -r sonarr_url
-    sonarr_url="${sonarr_url:-http://${CLAWARR_HOST:-localhost}:8989}"
+    sonarr_url="${sonarr_url:-${SONARR_URL:-http://${CLAWARR_HOST:-localhost}:8989}}"
     
     echo -n "Sonarr API Key: "
     read -r sonarr_key
-    sonarr_key="${sonarr_key:-${SONARR_KEY:-}}"
+    sonarr_key="${sonarr_key:-${SONARR_API_KEY:-}}"
+    if [[ "$sonarr_key" == oc-sent-* ]]; then
+      echo "  ⚠️  SONARR_API_KEY is an OpenClaw store secret and cannot be written to a config file; enter the key manually." >&2
+      sonarr_key=""
+    fi
     
     # Create config
     cat > "$config_file" <<EOF

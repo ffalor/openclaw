@@ -6,7 +6,7 @@ API reference has no Notifiarr section). All endpoints are JSON.
 ## Authentication
 
 Notifiarr accepts the API key in a header (key optional for local status checks —
-the script falls back to unauthenticated calls when `NOTIFIARR_KEY` is unset):
+the script falls back to unauthenticated calls when `NOTIFIARR_API_KEY` is unset):
 
 ```
 Header: x-api-key: <api-key>

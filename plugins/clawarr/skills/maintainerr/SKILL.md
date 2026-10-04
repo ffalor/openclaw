@@ -1,22 +1,21 @@
 ---
 name: maintainerr
 description: Rule-based Plex library cleanup management (rules, collections, runs) via maintainerr.sh.
-metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": []}}}
 ---
 
 # Maintainerr
 
 Automated Plex library cleanup based on configurable rules (unwatched, old, low-rated). Matched media moves to a collection, then is deleted after a grace period unless excluded.
 
-## Requires
+## Prerequisites
 
-| Variable | Purpose | Default |
-|---|---|---|
-| `CLAWARR_HOST` | Maintainerr server host | — |
-| `MAINTAINERR_PORT` | Maintainerr HTTP port | `6246` |
-| `DOCKER_CONFIG_BASE` | Docker config root (optional, unused here) | `/volume1/docker` |
+| Variable | Purpose |
+|----------|---------|
+| `MAINTAINERR_URL` | Maintainerr base URL, e.g. `http://192.168.1.100:6246` |
+| `CLAWARR_HOST` | Optional fallback when `MAINTAINERR_URL` is unset: `http://$CLAWARR_HOST:6246` (`MAINTAINERR_PORT` override) |
 
-Create rules in the web UI at `http://<host>:6246`. See `references/companion-services.md` (Maintainerr section) for common rules and the API.
+Maintainerr's API takes no key. Create rules in its web UI. See `references/companion-services.md` (Maintainerr section) for common rules and the API.
 
 ## Commands (`scripts/maintainerr.sh`)
 
@@ -39,9 +38,9 @@ maintainerr.sh logs               # View activity log
 
 ## Connectivity checklist
 
-1. `CLAWARR_HOST` points at the Maintainerr server host
+1. `MAINTAINERR_URL` is set (or `CLAWARR_HOST` as the http fallback) and points at the Maintainerr instance; run `scripts/setup.sh maintainerr <url>` from the clawarr-core skill to (re)configure it.
 2. Port 6246 reachable (or `MAINTAINERR_PORT` override matches)
-3. Web UI at `http://<host>:6246` loads
+3. Web UI loads at `$MAINTAINERR_URL`
 4. At least one rule exists (`maintainerr.sh rules` non-empty)
 5. Maintainerr is linked to Plex (and Sonarr/Radarr for deletion)
 

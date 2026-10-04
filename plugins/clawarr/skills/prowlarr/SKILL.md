@@ -1,7 +1,7 @@
 ---
 name: prowlarr
 description: Centralized Prowlarr indexer management — list, test, search indexers and sync them to Sonarr/Radarr.
-metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "PROWLARR_KEY"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": []}}}
 ---
 
 # Prowlarr
@@ -15,18 +15,17 @@ for the raw API.
 
 Required binaries: `bash`, `curl`, `jq`.
 
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `CLAWARR_HOST` | Yes | Host IP/hostname of the Prowlarr instance (port 9696) |
-| `PROWLARR_KEY` | Yes | Prowlarr API key (Settings → General → Security → API Key) |
+| Variable | Purpose |
+|----------|---------|
+| `PROWLARR_URL` | Prowlarr base URL, e.g. `https://prowlarr.example.ts.net` or `http://192.168.1.100:9696` |
+| `PROWLARR_API_KEY` | API key (Settings → General → Security → API Key) |
+| `CLAWARR_HOST` | Optional fallback when `PROWLARR_URL` is unset: `http://$CLAWARR_HOST:9696` (`CLAWARR_SCHEME`, `PROWLARR_PORT` override) |
 
-```bash
-export CLAWARR_HOST=192.168.1.100
-export PROWLARR_KEY=abc123...
-```
+Configure both with the `clawarr-core` skill: `scripts/setup.sh prowlarr <url>`. Over HTTPS the key is a protected OpenClaw store secret and `$PROWLARR_API_KEY` holds an `oc-sent-…` sentinel; over plain HTTP it is plaintext in `~/.openclaw/.env`.
 
-Find the key via `curl -s http://HOST:9696/initialize.json | jq -r '.apiKey'`,
-from `/config/config.xml` inside the container, or the Prowlarr web UI.
+Prowlarr API: `$PROWLARR_URL/api/v1`, auth header `X-Api-Key: $PROWLARR_API_KEY`.
+
+**Calling the API yourself:** always use `$PROWLARR_URL` with `$PROWLARR_API_KEY`. Never add `--noproxy`, unset `HTTP_PROXY`/`HTTPS_PROXY`, or print the key: an `oc-sent-…` value only works through the OpenClaw egress proxy, over HTTPS, to the host it is bound to. On a 401 report it and point the user at `clawarr-core`'s `scripts/setup.sh`; do not try other variables.
 
 ## Scripts
 
@@ -87,11 +86,12 @@ as a proxy in Prowlarr (see `references/companion-services.md`).
 
 Connectivity checklist:
 
-1. Host reachable: `curl -s http://$CLAWARR_HOST:9696/api/v1/system/status -H "X-Api-Key: $PROWLARR_KEY"`
-2. `CLAWARR_HOST` is set and points at the Prowlarr machine (no scheme, no port).
-3. `PROWLARR_KEY` matches Settings → General → Security → API Key (regenerate if unsure).
-4. Port `9696` is open on the host firewall and the container is running (`docker logs prowlarr`).
-5. Container logs show no errors: `docker logs prowlarr --tail 50`
+1. Host reachable: `curl -s $PROWLARR_URL/api/v1/system/status -H "X-Api-Key: $PROWLARR_API_KEY"`
+2. `PROWLARR_URL` is set (or `CLAWARR_HOST` as the http fallback) and points at the Prowlarr instance; run `scripts/setup.sh prowlarr <url>` from the clawarr-core skill to (re)configure it.
+3. `PROWLARR_API_KEY` matches Settings → General → Security → API Key (regenerate if unsure).
+4. A 401 with an `oc-sent-…` key means the request bypassed the OpenClaw egress proxy (`--noproxy`, unset proxy vars, plain http) or the URL's host isn't in the secret's allowed hosts — never work around it by using another variable.
+5. Port `9696` is open on the host firewall and the container is running (`docker logs prowlarr`).
+6. Container logs show no errors: `docker logs prowlarr --tail 50`
 
 ## References
 

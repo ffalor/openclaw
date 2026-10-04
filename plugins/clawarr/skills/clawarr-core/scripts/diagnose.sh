@@ -5,16 +5,24 @@
 set -euo pipefail
 
 HOST="${CLAWARR_HOST:-}"
-SONARR_KEY="${SONARR_KEY:-}"
-RADARR_KEY="${RADARR_KEY:-}"
+SONARR_API_KEY="${SONARR_API_KEY:-}"
+RADARR_API_KEY="${RADARR_API_KEY:-}"
 
-if [[ -z "$HOST" ]]; then
-  echo "Error: CLAWARR_HOST not set"
+# Base URL per service: <SERVICE>_URL, else ${CLAWARR_SCHEME:-http}://$CLAWARR_HOST:<port>
+arr_url() {
+  if [[ -n "$1" ]]; then printf '%s' "${1%/}"
+  elif [[ -n "${CLAWARR_HOST:-}" ]]; then printf '%s://%s:%s' "${CLAWARR_SCHEME:-http}" "$CLAWARR_HOST" "$2"
+  fi
+}
+SONARR_URL="$(arr_url "${SONARR_URL:-}" "${SONARR_PORT:-8989}")"
+RADARR_URL="$(arr_url "${RADARR_URL:-}" "${RADARR_PORT:-7878}")"
+
+if [[ -z "$SONARR_URL" && -z "$RADARR_URL" ]]; then
+  echo "Error: set SONARR_URL/RADARR_URL (or CLAWARR_HOST)"
   echo ""
   echo "Usage:"
-  echo "  export CLAWARR_HOST=192.168.1.100"
-  echo "  export SONARR_KEY=abc123..."
-  echo "  export RADARR_KEY=def456..."
+  echo "  export SONARR_URL=http://192.168.1.100:8989"
+  echo "  export SONARR_API_KEY=abc123..."
   echo "  $0"
   exit 1
 fi
@@ -24,7 +32,7 @@ if ! command -v jq &> /dev/null; then
   exit 1
 fi
 
-echo "🔍 Running diagnostics for $HOST..."
+echo "🔍 Running diagnostics..."
 echo ""
 
 # Check if Docker is available AND host is local (Docker checks only make sense locally)
@@ -86,14 +94,14 @@ echo "=== Queue Warnings ==="
 
 check_queue_warnings() {
   local service=$1
-  local port=$2
+  local base=$2
   local api_key=$3
   
-  if [[ -z "$api_key" ]]; then
+  if [[ -z "$api_key" || -z "$base" ]]; then
     return
   fi
   
-  queue=$(curl -sf -H "X-Api-Key: ${api_key}" "http://${HOST}:${port}/api/v3/queue" 2>/dev/null || echo '{"records":[]}')
+  queue=$(curl -sSf -H "X-Api-Key: ${api_key}" "${base}/api/v3/queue" || echo '{"records":[]}')
   
   warnings=$(echo "$queue" | jq -r '.records[] | select(.status == "warning" or .status == "failed") | "  ⚠️  \(.title): \(.statusMessages[0].messages[0] // .status)"' 2>/dev/null)
   
@@ -102,17 +110,17 @@ check_queue_warnings() {
   fi
 }
 
-if [[ -n "$RADARR_KEY" ]]; then
+if [[ -n "$RADARR_API_KEY" ]]; then
   echo "Radarr:"
-  check_queue_warnings "Radarr" 7878 "$RADARR_KEY"
+  check_queue_warnings "Radarr" "$RADARR_URL" "$RADARR_API_KEY"
 fi
 
-if [[ -n "$SONARR_KEY" ]]; then
+if [[ -n "$SONARR_API_KEY" ]]; then
   echo "Sonarr:"
-  check_queue_warnings "Sonarr" 8989 "$SONARR_KEY"
+  check_queue_warnings "Sonarr" "$SONARR_URL" "$SONARR_API_KEY"
 fi
 
-if [[ -z "$RADARR_KEY" && -z "$SONARR_KEY" ]]; then
+if [[ -z "$RADARR_API_KEY" && -z "$SONARR_API_KEY" ]]; then
   echo "  (no API keys configured)"
 fi
 
@@ -123,15 +131,15 @@ echo "=== Recent Import Failures ==="
 
 check_failed_imports() {
   local service=$1
-  local port=$2
+  local base=$2
   local api_key=$3
   
-  if [[ -z "$api_key" ]]; then
+  if [[ -z "$api_key" || -z "$base" ]]; then
     return
   fi
   
-  history=$(curl -sf -H "X-Api-Key: ${api_key}" \
-    "http://${HOST}:${port}/api/v3/history?pageSize=20&eventType=3" 2>/dev/null || echo '{"records":[]}')
+  history=$(curl -sSf -H "X-Api-Key: ${api_key}" \
+    "${base}/api/v3/history?pageSize=20&eventType=3" || echo '{"records":[]}')
   
   failures=$(echo "$history" | jq -r '.records[] | select(.eventType == "downloadFailed") | "  ❌ \(.sourceTitle): \(.data.message // "Unknown error")"' 2>/dev/null | head -5)
   
@@ -142,15 +150,15 @@ check_failed_imports() {
   fi
 }
 
-if [[ -n "$RADARR_KEY" ]]; then
+if [[ -n "$RADARR_API_KEY" ]]; then
   echo "Radarr:"
-  check_failed_imports "Radarr" 7878 "$RADARR_KEY"
+  check_failed_imports "Radarr" "$RADARR_URL" "$RADARR_API_KEY"
   echo ""
 fi
 
-if [[ -n "$SONARR_KEY" ]]; then
+if [[ -n "$SONARR_API_KEY" ]]; then
   echo "Sonarr:"
-  check_failed_imports "Sonarr" 8989 "$SONARR_KEY"
+  check_failed_imports "Sonarr" "$SONARR_URL" "$SONARR_API_KEY"
   echo ""
 fi
 
@@ -158,14 +166,14 @@ fi
 echo "=== Disk Space ==="
 
 # Try to get root folders from Radarr/Sonarr
-if [[ -n "$RADARR_KEY" ]]; then
-  folders=$(curl -sf -H "X-Api-Key: ${RADARR_KEY}" "http://${HOST}:7878/api/v3/rootfolder" 2>/dev/null || echo '[]')
+if [[ -n "$RADARR_API_KEY" && -n "$RADARR_URL" ]]; then
+  folders=$(curl -sSf -H "X-Api-Key: ${RADARR_API_KEY}" "${RADARR_URL}/api/v3/rootfolder" || echo '[]')
   
   echo "$folders" | jq -r '.[] | "  Radarr: \(.path) - \(.freeSpace / 1024 / 1024 / 1024 | floor)GB free"' 2>/dev/null
 fi
 
-if [[ -n "$SONARR_KEY" ]]; then
-  folders=$(curl -sf -H "X-Api-Key: ${SONARR_KEY}" "http://${HOST}:8989/api/v3/rootfolder" 2>/dev/null || echo '[]')
+if [[ -n "$SONARR_API_KEY" && -n "$SONARR_URL" ]]; then
+  folders=$(curl -sSf -H "X-Api-Key: ${SONARR_API_KEY}" "${SONARR_URL}/api/v3/rootfolder" || echo '[]')
   
   echo "$folders" | jq -r '.[] | "  Sonarr: \(.path) - \(.freeSpace / 1024 / 1024 / 1024 | floor)GB free"' 2>/dev/null
 fi

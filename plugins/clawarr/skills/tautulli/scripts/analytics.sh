@@ -15,17 +15,25 @@
 
 set -euo pipefail
 
-HOST="${CLAWARR_HOST:-}"
-CLAWARR_SCHEME="${CLAWARR_SCHEME:-http}"
-TAUTULLI_KEY="${TAUTULLI_KEY:-}"
-TAUTULLI_PORT="${TAUTULLI_PORT:-8181}"
+TAUTULLI_API_KEY="${TAUTULLI_API_KEY:-}"
 PLEX_TOKEN="${PLEX_TOKEN:-}"
-PLEX_HOST="${PLEX_HOST:-$HOST}"
-PLEX_SCHEME="${PLEX_SCHEME:-http}"
-PLEX_PORT="${PLEX_PORT:-32400}"
 
-if [[ -z "$HOST" ]]; then
-  echo "❌ Error: CLAWARR_HOST not set"
+# Base URL per service: <SERVICE>_URL, else ${CLAWARR_SCHEME:-http}://$CLAWARR_HOST:<port>
+arr_url() {
+  if [[ -n "$1" ]]; then printf '%s' "${1%/}"
+  elif [[ -n "${CLAWARR_HOST:-}" ]]; then printf '%s://%s:%s' "${CLAWARR_SCHEME:-http}" "$CLAWARR_HOST" "$2"
+  fi
+}
+TAUTULLI_URL="$(arr_url "${TAUTULLI_URL:-}" "${TAUTULLI_PORT:-8181}")"
+# Plex base URL: PLEX_URL, else ${PLEX_SCHEME:-http}://${PLEX_HOST:-$CLAWARR_HOST}:${PLEX_PORT:-32400}
+if [[ -z "${PLEX_URL:-}" && -n "${PLEX_HOST:-${CLAWARR_HOST:-}}" ]]; then
+  PLEX_URL="${PLEX_SCHEME:-http}://${PLEX_HOST:-$CLAWARR_HOST}:${PLEX_PORT:-32400}"
+fi
+PLEX_URL="${PLEX_URL:-}"
+PLEX_URL="${PLEX_URL%/}"
+
+if [[ -z "$TAUTULLI_URL" && -z "$PLEX_URL" ]]; then
+  echo "❌ Error: set TAUTULLI_URL/PLEX_URL (or CLAWARR_HOST)"
   exit 1
 fi
 
@@ -45,30 +53,30 @@ tautulli_api() {
   shift
   local params="$*"
   
-  if [[ -z "$TAUTULLI_KEY" ]]; then
+  if [[ -z "$TAUTULLI_API_KEY" || -z "$TAUTULLI_URL" ]]; then
     printf '{}'
     return 0
   fi
   
-  local url="${CLAWARR_SCHEME}://${HOST}:${TAUTULLI_PORT}/api/v2?apikey=${TAUTULLI_KEY}&cmd=${cmd}"
+  local url="${TAUTULLI_URL}/api/v2?apikey=${TAUTULLI_API_KEY}&cmd=${cmd}"
   if [[ -n "$params" ]]; then
     url="${url}&${params}"
   fi
   
-  curl -fsS --connect-timeout 3 --max-time 20 "$url" 2>/dev/null || printf '{}'
+  curl -fsS --connect-timeout 3 --max-time 20 "$url" || printf '{}'
 }
 
 # Helper: call Plex API
 plex_api() {
   local endpoint=$1
   
-  if [[ -z "$PLEX_TOKEN" ]]; then
+  if [[ -z "$PLEX_TOKEN" || -z "$PLEX_URL" ]]; then
     printf '{}'
     return 0
   fi
   
   curl -fsS --connect-timeout 3 --max-time 20 -H "X-Plex-Token: ${PLEX_TOKEN}" -H "Accept: application/json" \
-    "${PLEX_SCHEME}://${PLEX_HOST}:${PLEX_PORT}${endpoint}" 2>/dev/null || printf '{}'
+    "${PLEX_URL}${endpoint}" || printf '{}'
 }
 
 # Command: activity (current streams)

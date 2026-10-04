@@ -1,289 +1,263 @@
 #!/usr/bin/env bash
-# setup.sh - Interactive setup and connection diagnostics for ClawARR Suite
-# Usage: setup.sh [host]
+# setup.sh - Configure one ClawARR service for OpenClaw
+# Usage: setup.sh <service> <url>
+#        setup.sh --list
 #
-# Walks through discovery, API key retrieval, and connection testing.
-# Outputs a ready-to-use config block at the end.
+# Where the API key goes depends on the URL scheme:
+#   https://  -> OpenClaw shared secret store as a protected secret bound to the URL's host.
+#                Agents only ever see a sentinel; the Gateway egress proxy swaps in the real
+#                key on the way out. Requires secrets.egressProxy.enabled.
+#   http://   -> plaintext in the OpenClaw global .env (${OPENCLAW_STATE_DIR:-~/.openclaw}/.env).
+#                The egress proxy refuses plain HTTP, so store secrets cannot work there.
+# <SERVICE>_URL always goes in the global .env. A key never lives in both places.
+#
+# The key is auto-detected from /initialize.json where the app exposes it and is never
+# printed. When it can't be detected:
+#   https -> exit 3: the agent should ask the user for it with the `secrets` tool
+#   http  -> prompt for it (no echo) on a terminal, otherwise exit 4 with instructions
+#
+# Exit codes: 0 configured, 1 error, 2 usage, 3 key needed via secrets tool, 4 key needed manually
 # Compatible with bash 3.2+ (macOS default).
 
 set -euo pipefail
 
-if ! command -v jq &> /dev/null; then
-  echo "❌ jq is required. Install with: brew install jq (macOS) or apt install jq (Linux)"
-  exit 1
-fi
+# CLAWARR_ENV_FILE overrides the target file (e.g. for testing)
+ENV_FILE="${CLAWARR_ENV_FILE:-${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/.env}"
 
-HOST="${1:-}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+usage() {
+  sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+  exit 2
+}
 
-echo "╔══════════════════════════════════════╗"
-echo "║     ClawARR Suite — Setup Wizard     ║"
-echo "╚══════════════════════════════════════╝"
-echo ""
+list_services() {
+  echo "Services: sonarr radarr lidarr readarr prowlarr bazarr overseerr tautulli sabnzbd notifiarr plex"
+}
 
-# Step 1: Host
-if [[ -z "$HOST" ]]; then
-  echo "Step 1: Where is your media stack running?"
-  echo ""
-  echo "  Common options:"
-  echo "    localhost       — same machine"
-  echo "    192.168.x.x     — LAN IP of NAS/server"
-  echo "    media.local     — mDNS hostname"
-  echo ""
-  read -rp "  Enter host IP or hostname: " HOST
-  echo ""
-fi
-
-if [[ -z "$HOST" ]]; then
-  echo "❌ No host provided. Exiting."
-  exit 1
-fi
-
-# Step 2: Connectivity
-echo "Step 1: Testing connectivity to $HOST..."
-echo ""
-
-REACHABLE=false
-if ping -c 1 -W 2 "$HOST" &>/dev/null; then
-  REACHABLE=true
-elif curl -s --connect-timeout 3 -o /dev/null "http://${HOST}:8989/" 2>/dev/null || \
-     curl -s --connect-timeout 3 -o /dev/null "http://${HOST}:7878/" 2>/dev/null || \
-     curl -s --connect-timeout 3 -o /dev/null "http://${HOST}:32400/" 2>/dev/null; then
-  REACHABLE=true
-fi
-
-if [[ "$REACHABLE" == true ]]; then
-  echo "  ✅ Host $HOST is reachable"
-else
-  echo "  ❌ Cannot reach $HOST"
-  echo ""
-  echo "  Troubleshooting:"
-  echo "    - Is the machine powered on?"
-  echo "    - Are you on the same network/VLAN?"
-  echo "    - Try the IP address instead of hostname"
-  echo "    - Check firewall settings"
-  exit 1
-fi
-echo ""
-
-# Step 3: Service discovery
-echo "Step 2: Scanning for services..."
-echo ""
-
-# Track found services and keys (bash 3.2 compatible — no associative arrays)
-FOUND_APPS=""
-SONARR_PORT="" RADARR_PORT="" LIDARR_PORT="" READARR_PORT="" PROWLARR_PORT=""
-BAZARR_PORT="" OVERSEERR_PORT="" PLEX_PORT="" TAUTULLI_PORT="" SABNZBD_PORT=""
-SONARR_KEY="" RADARR_KEY="" LIDARR_KEY="" READARR_KEY="" PROWLARR_KEY=""
-
-set_port_var() {
-  local name=$1 port=$2
-  case "$name" in
-    Sonarr) SONARR_PORT="$port" ;;
-    Radarr) RADARR_PORT="$port" ;;
-    Lidarr) LIDARR_PORT="$port" ;;
-    Readarr) READARR_PORT="$port" ;;
-    Prowlarr) PROWLARR_PORT="$port" ;;
-    Bazarr) BAZARR_PORT="$port" ;;
-    Overseerr) OVERSEERR_PORT="$port" ;;
-    Plex) PLEX_PORT="$port" ;;
-    Tautulli) TAUTULLI_PORT="$port" ;;
-    SABnzbd) SABNZBD_PORT="$port" ;;
+# svc_info <service> -> sets PREFIX KEY_VAR LABEL AUTODETECT CHECK AUTH
+svc_info() {
+  AUTODETECT=no AUTH=header
+  case "$1" in
+    sonarr)    PREFIX=SONARR    LABEL=Sonarr    AUTODETECT=yes CHECK=/api/v3/system/status ;;
+    radarr)    PREFIX=RADARR    LABEL=Radarr    AUTODETECT=yes CHECK=/api/v3/system/status ;;
+    lidarr)    PREFIX=LIDARR    LABEL=Lidarr    AUTODETECT=yes CHECK=/api/v1/system/status ;;
+    readarr)   PREFIX=READARR   LABEL=Readarr   AUTODETECT=yes CHECK=/api/v1/system/status ;;
+    prowlarr)  PREFIX=PROWLARR  LABEL=Prowlarr  AUTODETECT=yes CHECK=/api/v1/system/status ;;
+    bazarr)    PREFIX=BAZARR    LABEL=Bazarr    CHECK=/api/system/status ;;
+    overseerr) PREFIX=OVERSEERR LABEL=Overseerr CHECK=/api/v1/request/count ;;
+    tautulli)  PREFIX=TAUTULLI  LABEL=Tautulli  CHECK="/api/v2?cmd=get_tautulli_info" AUTH=query ;;
+    sabnzbd)   PREFIX=SABNZBD   LABEL=SABnzbd   CHECK="/api?mode=queue&output=json&limit=1" AUTH=query ;;
+    notifiarr) PREFIX=NOTIFIARR LABEL=Notifiarr CHECK="" ;;
+    plex)      PREFIX=PLEX      LABEL=Plex      CHECK=/library/sections AUTH=plex ;;
+    *) return 1 ;;
   esac
+  KEY_VAR="${PREFIX}_API_KEY"
+  [[ "$1" == plex ]] && KEY_VAR=PLEX_TOKEN
+  return 0
 }
 
-set_key_var() {
-  local app=$1 key=$2
-  case "$app" in
-    Sonarr) SONARR_KEY="$key" ;;
-    Radarr) RADARR_KEY="$key" ;;
-    Lidarr) LIDARR_KEY="$key" ;;
-    Readarr) READARR_KEY="$key" ;;
-    Prowlarr) PROWLARR_KEY="$key" ;;
-  esac
+# --- global .env helpers -----------------------------------------------------
+
+env_has() { [[ -f "$ENV_FILE" ]] && grep -Eq "^(export[[:space:]]+)?$1=" "$ENV_FILE"; }
+
+env_unset() {
+  env_has "$1" || return 0
+  local tmp
+  tmp=$(mktemp)
+  grep -Ev "^(export[[:space:]]+)?$1=" "$ENV_FILE" > "$tmp" || true
+  cat "$tmp" > "$ENV_FILE"
+  rm -f "$tmp"
 }
 
-get_port_var() {
-  local app=$1
-  case "$app" in
-    Sonarr) echo "$SONARR_PORT" ;;
-    Radarr) echo "$RADARR_PORT" ;;
-    Lidarr) echo "$LIDARR_PORT" ;;
-    Readarr) echo "$READARR_PORT" ;;
-    Prowlarr) echo "$PROWLARR_PORT" ;;
-    *) echo "" ;;
-  esac
+# env_set <name> - value is read from stdin so it never appears in argv
+env_set() {
+  local value
+  IFS= read -r value || true
+  mkdir -p "$(dirname "$ENV_FILE")"
+  touch "$ENV_FILE"
+  chmod 600 "$ENV_FILE"
+  env_unset "$1"
+  printf '%s=%s\n' "$1" "$value" >> "$ENV_FILE"
 }
 
-check_service() {
-  local name=$1 port=$2 path=$3
-  local http_code
-  http_code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 3 "http://${HOST}:${port}${path}" 2>/dev/null || echo "000")
+# --- store helpers -------------------------------------------------------------
 
-  if [[ "$http_code" =~ ^(200|301|302|303|400|401|403)$ ]]; then
-    if [[ "$http_code" == "200" ]]; then
-      echo "  ✅ $name — http://${HOST}:${port}"
-    else
-      echo "  ✅ $name — http://${HOST}:${port} (auth required)"
-    fi
-    FOUND_APPS="${FOUND_APPS} ${name}"
-    # Store port in the app-specific variable (bash 3.2 compatible)
-    set_port_var "$name" "$port"
-    return 0
-  else
-    echo "  ·  $name — not found on port $port"
-    return 1
-  fi
+store_hosts() {
+  openclaw secrets store list --json 2>/dev/null \
+    | jq -r --arg n "$1" '.[] | select(.name == $n) | .allowedHosts[]?' 2>/dev/null || true
 }
 
-check_service Sonarr   8989 "/api/v3/system/status" || true
-check_service Radarr   7878 "/api/v3/system/status" || true
-check_service Lidarr   8686 "/api/v1/system/status" || true
-check_service Readarr  8787 "/api/v1/system/status" || true
-check_service Prowlarr 9696 "/api/v1/system/status" || true
-check_service Bazarr   6767 "/api/system/status"    || true
-check_service Overseerr 5055 "/api/v1/status"       || true
-check_service Plex     32400 "/identity"             || true
-check_service Tautulli 8181 "/api/v2?cmd=get_tautulli_info" || true
-check_service SABnzbd  8080 "/api?mode=version"     || true
+store_has() {
+  openclaw secrets store list --json 2>/dev/null \
+    | jq -e --arg n "$1" 'any(.[]; .name == $n)' >/dev/null 2>&1
+}
 
-FOUND_COUNT=$(echo "$FOUND_APPS" | wc -w | tr -d ' ')
-echo ""
+# --- key detection / verification ----------------------------------------------
 
-if [[ "$FOUND_COUNT" -eq 0 ]]; then
-  echo "❌ No services detected on standard ports."
-  echo ""
-  echo "  Possible causes:"
-  echo "    - Services aren't running (check Docker/systemd)"
-  echo "    - Non-standard ports (check your docker-compose or app configs)"
-  echo "    - Firewall blocking connections"
-  exit 1
-fi
-
-echo "  Found $FOUND_COUNT service(s)"
-echo ""
-
-# Step 4: API key retrieval
-echo "Step 3: Retrieving API keys..."
-echo ""
-
-get_api_key() {
-  local app=$1 port=$2
-  local key=""
-
-  # Try /initialize.json first (v4+)
-  local json_resp
-  json_resp=$(curl -sf "http://${HOST}:${port}/initialize.json" 2>/dev/null || echo "")
-  if [[ -n "$json_resp" ]]; then
-    key=$(echo "$json_resp" | jq -r '.apiKey // empty' 2>/dev/null || echo "")
-  fi
-
-  # Fall back to /initialize.js (v3)
+detect_key() {
+  local base=$1 resp key=""
+  resp=$(curl -sf --connect-timeout 5 --max-time 15 "${base}/initialize.json" 2>/dev/null || true)
+  [[ -n "$resp" ]] && key=$(printf '%s' "$resp" | jq -r '.apiKey // empty' 2>/dev/null || true)
   if [[ -z "$key" ]]; then
-    local js_resp
-    js_resp=$(curl -sf "http://${HOST}:${port}/initialize.js" 2>/dev/null || echo "")
-    if [[ -n "$js_resp" ]]; then
-      key=$(echo "$js_resp" | grep -o "apiKey: '[^']*'" | cut -d"'" -f2 || echo "")
-    fi
+    resp=$(curl -sf --connect-timeout 5 --max-time 15 "${base}/initialize.js" 2>/dev/null || true)
+    [[ -n "$resp" ]] && key=$(printf '%s' "$resp" | grep -o "apiKey: '[^']*'" | cut -d"'" -f2 || true)
   fi
-
-  if [[ -n "$key" ]]; then
-    local masked="${key:0:4}...${key: -4}"
-    echo "  ✅ $app API key: $masked"
-    set_key_var "$app" "$key"
-  else
-    echo "  ⚠️  $app — couldn't auto-detect key"
-    echo "     → Find it in $app: Settings → General → API Key"
-  fi
+  printf '%s' "$key"
 }
 
-for app in Sonarr Radarr Lidarr Readarr Prowlarr; do
-  port=$(get_port_var "$app")
-  if [[ -n "$port" ]]; then
-    get_api_key "$app" "$port"
+# verify_key <base> <key> - 0 when the service accepts the key; prints a reason otherwise
+verify_key() {
+  local base=$1 key=$2 out code
+  [[ -z "$CHECK" ]] && { echo "no authenticated check for $LABEL"; return 0; }
+  out=$(mktemp)
+  case "$AUTH" in
+    header) code=$(curl -sS -o "$out" -w '%{http_code}' --connect-timeout 5 --max-time 15 -H "X-Api-Key: $key" "${base}${CHECK}" 2>/dev/null) || true ;;
+    plex)   code=$(curl -sS -o "$out" -w '%{http_code}' --connect-timeout 5 --max-time 15 -H "X-Plex-Token: $key" -H "Accept: application/json" "${base}${CHECK}" 2>/dev/null) || true ;;
+    query)  code=$(curl -sS -o "$out" -w '%{http_code}' --connect-timeout 5 --max-time 15 "${base}${CHECK}&apikey=${key}" 2>/dev/null) || true ;;
+  esac
+  local ok=1
+  if [[ "$code" == 2* ]]; then
+    ok=0
+    # Tautulli and SABnzbd answer 200 with an error body for a bad key
+    if [[ "$PREFIX" == TAUTULLI ]] && ! jq -e '.response.result == "success"' "$out" >/dev/null 2>&1; then ok=1; fi
+    if [[ "$PREFIX" == SABNZBD ]] && jq -e '.status == false' "$out" >/dev/null 2>&1; then ok=1; fi
   fi
+  rm -f "$out"
+  [[ $ok -eq 0 ]] && return 0
+  case "${code:-000}" in
+    000) echo "unreachable" ;;
+    401|403) echo "HTTP $code (key rejected)" ;;
+    2*) echo "key rejected" ;;
+    *) echo "HTTP $code" ;;
+  esac
+  return 1
+}
+
+# --- main ----------------------------------------------------------------------
+
+[[ $# -ge 1 ]] || usage
+case "$1" in
+  -h|--help) usage ;;
+  --list) list_services; exit 0 ;;
+esac
+[[ $# -eq 2 ]] || usage
+
+SERVICE=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+URL="${2%/}"
+
+if ! svc_info "$SERVICE"; then
+  echo "❌ Unknown service: $1"; list_services; exit 2
+fi
+for bin in curl jq; do
+  command -v "$bin" >/dev/null 2>&1 || { echo "❌ $bin is required"; exit 1; }
 done
 
-echo ""
+SCHEME="${URL%%://*}"
+case "$SCHEME" in
+  http|https) ;;
+  *) echo "❌ URL must start with http:// or https:// (got: $URL)"; exit 2 ;;
+esac
+HOSTPORT="${URL#*://}"; HOSTPORT="${HOSTPORT%%/*}"
+URL_HOST="${HOSTPORT%%:*}"
+URL_HOST=$(printf '%s' "$URL_HOST" | tr '[:upper:]' '[:lower:]')
 
-# Step 5: Connection verification
-echo "Step 4: Verifying API connections..."
-echo ""
+echo "🔧 $LABEL → $URL"
 
-ALL_OK=true
+# Reachability (any HTTP answer counts; auth is checked later)
+code=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 5 --max-time 15 "$URL/" 2>/dev/null || true)
+if [[ -z "$code" || "$code" == 000 ]]; then
+  echo "❌ $URL is not reachable from this host"
+  exit 1
+fi
+echo "  ✅ reachable"
 
-verify_arr() {
-  local app=$1 port=$2 key=$3 api_ver=${4:-v3}
+if [[ "$SCHEME" == https ]]; then
+  command -v openclaw >/dev/null 2>&1 || {
+    echo "❌ https needs the openclaw CLI (run this on the OpenClaw Gateway host)"; exit 1; }
+  if [[ "$(openclaw config get secrets.egressProxy.enabled 2>/dev/null | tail -n1)" != "true" ]]; then
+    echo "❌ The secret egress proxy is off, so store secrets would never reach $LABEL."
+    echo "   Ask the user to enable it, then restart the Gateway:"
+    echo "     openclaw config set secrets.egressProxy.enabled true --strict-json"
+    echo "     openclaw gateway restart"
+    exit 1
+  fi
+fi
 
-  if [[ -z "$key" ]]; then return; fi
+# The URL is not a secret: it always goes in the global .env
+printf '%s' "$URL" | env_set "${PREFIX}_URL"
+echo "  ✅ ${PREFIX}_URL written to $ENV_FILE"
 
-  local resp
-  resp=$(curl -sf -H "X-Api-Key: $key" "http://${HOST}:${port}/api/${api_ver}/system/status" 2>/dev/null || echo "")
+KEY=""
+[[ "$AUTODETECT" == yes ]] && KEY=$(detect_key "$URL")
 
-  if [[ -n "$resp" ]]; then
-    local version
-    version=$(echo "$resp" | jq -r '.version // "unknown"' 2>/dev/null)
-    echo "  ✅ $app v${version} — connected"
+if [[ "$SCHEME" == https ]]; then
+  # Keep any hosts the entry is already bound to and add this one
+  HOSTS="$URL_HOST"
+  for h in $(store_hosts "$KEY_VAR"); do
+    [[ "$h" == "$URL_HOST" ]] || HOSTS="$HOSTS $h"
+  done
+  HOST_ARGS=()
+  for h in $HOSTS; do HOST_ARGS+=(--allow-host "$h"); done
+
+  if env_has "$KEY_VAR"; then
+    env_unset "$KEY_VAR"
+    echo "  ✅ removed plaintext $KEY_VAR from $ENV_FILE (it now lives in the secret store)"
+  fi
+
+  if [[ -n "$KEY" ]]; then
+    if ! reason=$(verify_key "$URL" "$KEY"); then
+      echo "❌ $LABEL rejected the auto-detected key: $reason"; exit 1
+    fi
+    printf '%s' "$KEY" | openclaw secrets store set "$KEY_VAR" --kind secret --value-file - "${HOST_ARGS[@]}" >/dev/null
+    KEY=""
+    echo "  ✅ $KEY_VAR stored as a protected secret (hosts: $HOSTS)"
+  elif store_has "$KEY_VAR"; then
+    # Already stored: just make sure this host is allowed
+    openclaw secrets store set "$KEY_VAR" "${HOST_ARGS[@]}" >/dev/null
+    echo "  ✅ $KEY_VAR already in the secret store; allowed hosts: $HOSTS"
   else
-    echo "  ❌ $app — connection failed"
-    ALL_OK=false
+    echo ""
+    echo "  ⚠️  Could not auto-detect the $LABEL key. Ask the user for it with the secrets tool:"
+    printf '  SECRETS_REQUEST %s\n' "$(jq -cn --arg n "$KEY_VAR" --arg h "$URL_HOST" --arg l "$LABEL" \
+      '{action: "request", name: $n, allowedHosts: [$h], reason: ("ClawARR needs the " + $l + " API key to call " + $h)}')"
+    exit 3
   fi
-}
-
-verify_arr Sonarr   "$SONARR_PORT"   "$SONARR_KEY"   v3
-verify_arr Radarr   "$RADARR_PORT"   "$RADARR_KEY"   v3
-verify_arr Lidarr   "$LIDARR_PORT"   "$LIDARR_KEY"   v1
-verify_arr Readarr  "$READARR_PORT"  "$READARR_KEY"  v1
-verify_arr Prowlarr "$PROWLARR_PORT" "$PROWLARR_KEY" v1
-
-# Plex
-if [[ -n "$PLEX_PORT" ]]; then
-  plex_resp=$(curl -sf "http://${HOST}:${PLEX_PORT}/identity" 2>/dev/null || echo "")
-  if [[ -n "$plex_resp" ]]; then
-    echo "  ✅ Plex — reachable (use X-Plex-Token for full access)"
+  if [[ -n "${!KEY_VAR:-}" && "${!KEY_VAR}" != oc-sent-* ]]; then
+    echo "  ⚠️  $KEY_VAR is also set as a plaintext process variable (container/service env)."
+    echo "     Remove it there, or it may shadow the store secret."
   fi
-fi
-
-# Overseerr
-if [[ -n "$OVERSEERR_PORT" ]]; then
-  os_resp=$(curl -sf "http://${HOST}:${OVERSEERR_PORT}/api/v1/status" 2>/dev/null || echo "")
-  if [[ -n "$os_resp" ]]; then
-    ver=$(echo "$os_resp" | jq -r '.version // "unknown"' 2>/dev/null)
-    echo "  ✅ Overseerr v${ver} — connected"
-  fi
-fi
-
-echo ""
-
-# Step 6: Output config
-echo "═══════════════════════════════════════"
-echo "  Setup Complete!"
-echo "═══════════════════════════════════════"
-echo ""
-echo "Export these to use ClawARR scripts:"
-echo ""
-echo "  export CLAWARR_HOST=$HOST"
-[[ -n "$SONARR_KEY" ]]   && echo "  export SONARR_KEY=$SONARR_KEY"
-[[ -n "$RADARR_KEY" ]]   && echo "  export RADARR_KEY=$RADARR_KEY"
-[[ -n "$LIDARR_KEY" ]]   && echo "  export LIDARR_KEY=$LIDARR_KEY"
-[[ -n "$READARR_KEY" ]]  && echo "  export READARR_KEY=$READARR_KEY"
-[[ -n "$PROWLARR_KEY" ]] && echo "  export PROWLARR_KEY=$PROWLARR_KEY"
-
-echo ""
-echo "Quick test:"
-echo "  scripts/status.sh"
-echo "  scripts/queue.sh"
-echo "  scripts/search.sh \"Breaking Bad\" series"
-echo ""
-
-if [[ "$ALL_OK" == true ]]; then
-  echo "✅ All connections verified. You're good to go!"
-else
-  echo "⚠️  Some connections need attention. Check warnings above."
   echo ""
-  echo "Common fixes:"
-  echo "  - API key wrong? Check Settings → General → API Key in the app's web UI"
-  echo "  - Port wrong? Check your docker-compose.yml or app config"
-  echo "  - Firewall? Ensure ports are open on the host"
-  echo "  - Reverse proxy? Try the direct IP:port instead of a domain"
+  echo "✅ $LABEL configured. Store changes reach new agent runs only;"
+  echo "   ${PREFIX}_URL is in $ENV_FILE, which the Gateway reads at start: restart it once"
+  echo "   (openclaw gateway restart), then verify in a new run with scripts/status.sh."
+  exit 0
 fi
+
+# --- http: plaintext key in the global .env ------------------------------------
+if store_has "$KEY_VAR" 2>/dev/null; then
+  echo "  ⚠️  $KEY_VAR also exists in the OpenClaw secret store. One name must have one source:"
+  echo "     ask the user to remove it with: openclaw secrets store rm $KEY_VAR"
+fi
+
+if [[ -z "$KEY" ]]; then
+  if [[ -t 0 ]]; then
+    read -rsp "  Enter the $LABEL API key (input hidden): " KEY; echo
+  else
+    echo ""
+    echo "  ⚠️  Could not auto-detect the $LABEL key, and plain HTTP cannot use the secret store."
+    echo "     Ask the user to add this line to $ENV_FILE themselves (never paste keys into chat):"
+    echo "       $KEY_VAR=<their $LABEL API key>"
+    echo "     or to run this script in a terminal, or to serve $LABEL over HTTPS instead."
+    exit 4
+  fi
+fi
+[[ -n "$KEY" ]] || { echo "❌ No key entered"; exit 1; }
+
+if ! reason=$(verify_key "$URL" "$KEY"); then
+  echo "❌ $LABEL rejected the key: $reason"; exit 1
+fi
+printf '%s' "$KEY" | env_set "$KEY_VAR"
+KEY=""
+echo "  ✅ $KEY_VAR written to $ENV_FILE"
+echo ""
+echo "✅ $LABEL configured. The Gateway reads $ENV_FILE at start: restart it"
+echo "   (openclaw gateway restart), then verify in a new run with scripts/status.sh."

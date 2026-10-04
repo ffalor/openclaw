@@ -8,10 +8,18 @@ set -euo pipefail
 QUERY="${1:-}"
 TYPE="${2:-movie}"
 
-HOST="${CLAWARR_HOST:-}"
-RADARR_KEY="${RADARR_KEY:-}"
-SONARR_KEY="${SONARR_KEY:-}"
-LIDARR_KEY="${LIDARR_KEY:-}"
+# Base URL per service: <SERVICE>_URL, else ${CLAWARR_SCHEME:-http}://$CLAWARR_HOST:<port>
+arr_url() {
+  if [[ -n "$1" ]]; then printf '%s' "${1%/}"
+  elif [[ -n "${CLAWARR_HOST:-}" ]]; then printf '%s://%s:%s' "${CLAWARR_SCHEME:-http}" "$CLAWARR_HOST" "$2"
+  fi
+}
+RADARR_URL="$(arr_url "${RADARR_URL:-}" "${RADARR_PORT:-7878}")"
+SONARR_URL="$(arr_url "${SONARR_URL:-}" "${SONARR_PORT:-8989}")"
+LIDARR_URL="$(arr_url "${LIDARR_URL:-}" "${LIDARR_PORT:-8686}")"
+RADARR_API_KEY="${RADARR_API_KEY:-}"
+SONARR_API_KEY="${SONARR_API_KEY:-}"
+LIDARR_API_KEY="${LIDARR_API_KEY:-}"
 
 if [[ -z "$QUERY" ]]; then
   echo "Usage: $0 \"<query>\" <type>"
@@ -23,12 +31,7 @@ if [[ -z "$QUERY" ]]; then
   echo "  $0 \"foundation\" series"
   echo "  $0 \"pink floyd\" music"
   echo ""
-  echo "Requires: CLAWARR_HOST, RADARR_KEY/SONARR_KEY/LIDARR_KEY environment variables"
-  exit 1
-fi
-
-if [[ -z "$HOST" ]]; then
-  echo "Error: CLAWARR_HOST not set"
+  echo "Requires: RADARR_URL/SONARR_URL/LIDARR_URL (or CLAWARR_HOST), RADARR_API_KEY/SONARR_API_KEY/LIDARR_API_KEY environment variables"
   exit 1
 fi
 
@@ -42,16 +45,16 @@ ENCODED_QUERY=$(echo "$QUERY" | jq -sRr @uri)
 
 case "$TYPE" in
   movie)
-    if [[ -z "$RADARR_KEY" ]]; then
-      echo "Error: RADARR_KEY not set"
+    if [[ -z "$RADARR_API_KEY" || -z "$RADARR_URL" ]]; then
+      echo "Error: RADARR_API_KEY and RADARR_URL (or CLAWARR_HOST) must be set"
       exit 1
     fi
     
     echo "🎬 Searching Radarr for: $QUERY"
     echo ""
     
-    results=$(curl -sf -H "X-Api-Key: ${RADARR_KEY}" \
-      "http://${HOST}:7878/api/v3/movie/lookup?term=${ENCODED_QUERY}" 2>/dev/null || echo '[]')
+    results=$(curl -sSf -H "X-Api-Key: ${RADARR_API_KEY}" \
+      "${RADARR_URL}/api/v3/movie/lookup?term=${ENCODED_QUERY}" || echo '[]')
     
     count=$(echo "$results" | jq 'length')
     
@@ -65,16 +68,16 @@ case "$TYPE" in
     ;;
     
   series)
-    if [[ -z "$SONARR_KEY" ]]; then
-      echo "Error: SONARR_KEY not set"
+    if [[ -z "$SONARR_API_KEY" || -z "$SONARR_URL" ]]; then
+      echo "Error: SONARR_API_KEY and SONARR_URL (or CLAWARR_HOST) must be set"
       exit 1
     fi
     
     echo "📺 Searching Sonarr for: $QUERY"
     echo ""
     
-    results=$(curl -sf -H "X-Api-Key: ${SONARR_KEY}" \
-      "http://${HOST}:8989/api/v3/series/lookup?term=${ENCODED_QUERY}" 2>/dev/null || echo '[]')
+    results=$(curl -sSf -H "X-Api-Key: ${SONARR_API_KEY}" \
+      "${SONARR_URL}/api/v3/series/lookup?term=${ENCODED_QUERY}" || echo '[]')
     
     count=$(echo "$results" | jq 'length')
     
@@ -88,16 +91,16 @@ case "$TYPE" in
     ;;
     
   music)
-    if [[ -z "$LIDARR_KEY" ]]; then
-      echo "Error: LIDARR_KEY not set"
+    if [[ -z "$LIDARR_API_KEY" || -z "$LIDARR_URL" ]]; then
+      echo "Error: LIDARR_API_KEY and LIDARR_URL (or CLAWARR_HOST) must be set"
       exit 1
     fi
     
     echo "🎵 Searching Lidarr for: $QUERY"
     echo ""
     
-    results=$(curl -sf -H "X-Api-Key: ${LIDARR_KEY}" \
-      "http://${HOST}:8686/api/v1/search?term=${ENCODED_QUERY}" 2>/dev/null || echo '[]')
+    results=$(curl -sSf -H "X-Api-Key: ${LIDARR_API_KEY}" \
+      "${LIDARR_URL}/api/v1/search?term=${ENCODED_QUERY}" || echo '[]')
     
     count=$(echo "$results" | jq 'length')
     

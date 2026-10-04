@@ -1,33 +1,34 @@
 ---
 name: radarr
 description: Manage your Radarr movie library — search and add films, monitor queue, inspect stats and missing movies.
-metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "RADARR_KEY"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": []}}}
 ---
 
 # Radarr
 
-Manage your Radarr movie library: search and add films, track the download queue, and inspect library health. Scripts are verbatim copies from the upstream `clawarr-suite` bundle.
+Manage your Radarr movie library: search and add films, track the download queue, and inspect library health. Scripts are adapted from the upstream `clawarr-suite` bundle (per-service URLs, OpenClaw secret-store support).
 
 ## Prerequisites
 
-| Requirement | Value |
-|-------------|-------|
-| Binaries | `bash`, `curl`, `jq` |
-| `CLAWARR_HOST` | Host or IP running Radarr (e.g. `192.168.1.100`) |
-| `RADARR_KEY` | Radarr API key (Settings → General → Security → API Key) |
+Required binaries: `bash`, `curl`, `jq`.
 
-Optional text/math helpers (`sed`, `bc`) are used by `library.sh` where available. A missing sibling key (`SONARR_KEY`, `LIDARR_KEY`) only disables that app's section in shared scripts — Radarr functionality is unaffected.
+| Variable | Purpose |
+|----------|---------|
+| `RADARR_URL` | Radarr base URL, e.g. `https://radarr.example.ts.net` or `http://192.168.1.100:7878` |
+| `RADARR_API_KEY` | API key (Settings → General → Security → API Key) |
+| `CLAWARR_HOST` | Optional fallback when `RADARR_URL` is unset: `http://$CLAWARR_HOST:7878` (`CLAWARR_SCHEME`, `RADARR_PORT` override) |
 
-```bash
-export CLAWARR_HOST=192.168.1.100
-export RADARR_KEY=def456...
-```
+Configure both with the `clawarr-core` skill: `scripts/setup.sh radarr <url>`. Over HTTPS the key is a protected OpenClaw store secret and `$RADARR_API_KEY` holds an `oc-sent-…` sentinel; over plain HTTP it is plaintext in `~/.openclaw/.env`.
 
-Radarr API: `http://$CLAWARR_HOST:7878/api/v3`, auth header `X-Api-Key: $RADARR_KEY`. Full endpoint list: `references/api-endpoints.md`.
+Optional text/math helpers (`sed`, `bc`) are used by `library.sh` where available. A missing sibling (`SONARR_*`, `LIDARR_*`) only disables that app's section in shared scripts — Radarr functionality is unaffected.
+
+Radarr API: `$RADARR_URL/api/v3`, auth header `X-Api-Key: $RADARR_API_KEY`. Full endpoint list: `references/api-endpoints.md`.
+
+**Calling the API yourself:** always use `$RADARR_URL` with `$RADARR_API_KEY`. Never add `--noproxy`, unset `HTTP_PROXY`/`HTTPS_PROXY`, or print the key: an `oc-sent-…` value only works through the OpenClaw egress proxy, over HTTPS, to the host it is bound to. On a 401 report it and point the user at `clawarr-core`'s `scripts/setup.sh`; do not try other variables.
 
 ## Scripts
 
-All scripts are verbatim upstream copies — do not diverge; fix upstream instead.
+Scripts are adapted from upstream `clawarr-suite`; keep shared copies across skills identical.
 
 ### `scripts/search.sh` — Find movies
 
@@ -80,7 +81,7 @@ scripts/library.sh disk radarr         # disk usage by root folder
 scripts/queue.sh
 ```
 
-Prints the Radarr (and Sonarr, when configured) queue with status, remaining size, and ETA. With only `RADARR_KEY` set, just the Radarr section renders.
+Prints the Radarr (and Sonarr, when configured) queue with status, remaining size, and ETA. With only `RADARR_API_KEY` set, just the Radarr section renders.
 
 ## Troubleshooting
 

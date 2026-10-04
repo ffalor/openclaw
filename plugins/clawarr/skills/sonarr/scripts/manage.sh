@@ -14,12 +14,20 @@
 
 set -euo pipefail
 
-HOST="${CLAWARR_HOST:-}"
-SONARR_KEY="${SONARR_KEY:-}"
-RADARR_KEY="${RADARR_KEY:-}"
+SONARR_API_KEY="${SONARR_API_KEY:-}"
+RADARR_API_KEY="${RADARR_API_KEY:-}"
 
-if [[ -z "$HOST" ]]; then
-  echo "❌ Error: CLAWARR_HOST not set"
+# Base URL per service: <SERVICE>_URL, else ${CLAWARR_SCHEME:-http}://$CLAWARR_HOST:<port>
+arr_url() {
+  if [[ -n "$1" ]]; then printf '%s' "${1%/}"
+  elif [[ -n "${CLAWARR_HOST:-}" ]]; then printf '%s://%s:%s' "${CLAWARR_SCHEME:-http}" "$CLAWARR_HOST" "$2"
+  fi
+}
+SONARR_URL="$(arr_url "${SONARR_URL:-}" "${SONARR_PORT:-8989}")"
+RADARR_URL="$(arr_url "${RADARR_URL:-}" "${RADARR_PORT:-7878}")"
+
+if [[ -z "$SONARR_URL" && -z "$RADARR_URL" ]]; then
+  echo "❌ Error: set SONARR_URL/RADARR_URL (or CLAWARR_HOST)"
   exit 1
 fi
 
@@ -41,18 +49,18 @@ api_call() {
   local data="${4:-}"
   
   local key=""
-  local port=""
+  local base=""
   local api_ver=""
   
   case "$app" in
     radarr)
-      key="$RADARR_KEY"
-      port=7878
+      key="$RADARR_API_KEY"
+      base="$RADARR_URL"
       api_ver="v3"
       ;;
     sonarr)
-      key="$SONARR_KEY"
-      port=8989
+      key="$SONARR_API_KEY"
+      base="$SONARR_URL"
       api_ver="v3"
       ;;
     *)
@@ -61,21 +69,21 @@ api_call() {
       ;;
   esac
   
-  if [[ -z "$key" ]]; then
-    echo "❌ API key not set for $app"
+  if [[ -z "$key" || -z "$base" ]]; then
+    echo "❌ API key or URL not set for $app"
     return 1
   fi
   
-  local url="http://${HOST}:${port}/api/${api_ver}${endpoint}"
+  local url="${base}/api/${api_ver}${endpoint}"
   
   if [[ "$method" == "GET" ]]; then
-    curl -sf -H "X-Api-Key: $key" "$url"
+    curl -sSf -H "X-Api-Key: $key" "$url"
   elif [[ "$method" == "POST" ]]; then
-    curl -sf -X POST -H "X-Api-Key: $key" -H "Content-Type: application/json" -d "$data" "$url"
+    curl -sSf -X POST -H "X-Api-Key: $key" -H "Content-Type: application/json" -d "$data" "$url"
   elif [[ "$method" == "DELETE" ]]; then
-    curl -sf -X DELETE -H "X-Api-Key: $key" "$url"
+    curl -sSf -X DELETE -H "X-Api-Key: $key" "$url"
   elif [[ "$method" == "PUT" ]]; then
-    curl -sf -X PUT -H "X-Api-Key: $key" -H "Content-Type: application/json" -d "$data" "$url"
+    curl -sSf -X PUT -H "X-Api-Key: $key" -H "Content-Type: application/json" -d "$data" "$url"
   fi
 }
 
@@ -303,7 +311,7 @@ cmd_remove() {
 cmd_wanted() {
   local app="${1:-all}"
   
-  if [[ "$app" == "all" || "$app" == "radarr" ]] && [[ -n "$RADARR_KEY" ]]; then
+  if [[ "$app" == "all" || "$app" == "radarr" ]] && [[ -n "$RADARR_API_KEY" ]]; then
     echo "📋 Wanted Movies (Radarr)"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
@@ -319,7 +327,7 @@ cmd_wanted() {
     echo ""
   fi
   
-  if [[ "$app" == "all" || "$app" == "sonarr" ]] && [[ -n "$SONARR_KEY" ]]; then
+  if [[ "$app" == "all" || "$app" == "sonarr" ]] && [[ -n "$SONARR_API_KEY" ]]; then
     echo "📋 Wanted Episodes (Sonarr)"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
@@ -346,7 +354,7 @@ cmd_calendar() {
   local end_date
   end_date=$(date -u -v+${days}d +"%Y-%m-%d" 2>/dev/null || date -u -d "${days} days" +"%Y-%m-%d")
   
-  if [[ "$app" == "all" || "$app" == "radarr" ]] && [[ -n "$RADARR_KEY" ]]; then
+  if [[ "$app" == "all" || "$app" == "radarr" ]] && [[ -n "$RADARR_API_KEY" ]]; then
     echo "📅 Upcoming Movies (Next $days days)"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
@@ -361,7 +369,7 @@ cmd_calendar() {
     echo ""
   fi
   
-  if [[ "$app" == "all" || "$app" == "sonarr" ]] && [[ -n "$SONARR_KEY" ]]; then
+  if [[ "$app" == "all" || "$app" == "sonarr" ]] && [[ -n "$SONARR_API_KEY" ]]; then
     echo "📅 Upcoming Episodes (Next $days days)"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     

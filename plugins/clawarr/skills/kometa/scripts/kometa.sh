@@ -8,8 +8,13 @@ set -euo pipefail
 DOCKER_HOST_SSH="${KOMETA_SSH:-}"
 DOCKER_CMD="${KOMETA_DOCKER_CMD:-docker}"
 CONTAINER="${KOMETA_CONTAINER:-kometa}"
-HOST="${CLAWARR_HOST:-}"
 PLEX_TOKEN="${PLEX_TOKEN:-}"
+# Plex base URL: PLEX_URL, else ${PLEX_SCHEME:-http}://${PLEX_HOST:-$CLAWARR_HOST}:${PLEX_PORT:-32400}
+if [[ -z "${PLEX_URL:-}" && -n "${PLEX_HOST:-${CLAWARR_HOST:-}}" ]]; then
+  PLEX_URL="${PLEX_SCHEME:-http}://${PLEX_HOST:-$CLAWARR_HOST}:${PLEX_PORT:-32400}"
+fi
+PLEX_URL="${PLEX_URL:-}"
+PLEX_URL="${PLEX_URL%/}"
 
 docker_exec() {
   if [[ -n "$DOCKER_HOST_SSH" ]]; then
@@ -80,21 +85,21 @@ cmd_run() {
 cmd_collections() {
   echo "📚 Kometa Collections"
   echo ""
-  if [[ -z "$HOST" || -z "$PLEX_TOKEN" ]]; then
-    echo "  Need CLAWARR_HOST and PLEX_TOKEN to query Plex collections"
+  if [[ -z "$PLEX_URL" || -z "$PLEX_TOKEN" ]]; then
+    echo "  Need PLEX_URL (or CLAWARR_HOST) and PLEX_TOKEN to query Plex collections"
     return
   fi
 
   # Query Plex for collections
   local sections
-  sections=$(curl -sf -H "X-Plex-Token: ${PLEX_TOKEN}" \
-    "http://${HOST}:32400/library/sections" 2>/dev/null)
+  sections=$(curl -sSf -H "X-Plex-Token: ${PLEX_TOKEN}" \
+    "${PLEX_URL}/library/sections")
 
   echo "$sections" | jq -r '.MediaContainer.Directory[] | "\(.key) \(.title)"' 2>/dev/null | while read -r key title; do
     echo "  📁 ${title}:"
     local cols
-    cols=$(curl -sf -H "X-Plex-Token: ${PLEX_TOKEN}" \
-      "http://${HOST}:32400/library/sections/${key}/collections" 2>/dev/null)
+    cols=$(curl -sSf -H "X-Plex-Token: ${PLEX_TOKEN}" \
+      "${PLEX_URL}/library/sections/${key}/collections")
     local count
     count=$(echo "$cols" | jq '.MediaContainer.size // 0' 2>/dev/null)
     if [[ "$count" != "0" && "$count" != "null" ]]; then
@@ -185,7 +190,7 @@ Environment:
   KOMETA_SSH            SSH host for remote Docker
   KOMETA_DOCKER_CMD     Docker command (default: docker)
   KOMETA_CONTAINER      Container name (default: kometa)
-  CLAWARR_HOST          Host IP (for Plex queries)
+  PLEX_URL              Plex base URL (or CLAWARR_HOST, port 32400)
   PLEX_TOKEN            Plex auth token
 EOF
 }

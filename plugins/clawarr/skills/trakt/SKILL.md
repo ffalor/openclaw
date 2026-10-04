@@ -15,8 +15,13 @@ Trakt.tv integration for watch-history tracking, scrobbling, watchlists, collect
 | `TRAKT_CLIENT_ID` | Yes | Trakt OAuth app client ID (register at `https://trakt.tv/oauth/applications/new`) |
 | `TRAKT_CLIENT_SECRET` | Yes | Trakt OAuth app client secret |
 | `PLEX_TOKEN` | No (unset-ok) | Plex authentication token — only needed for `sync-plex` |
-| `TAUTULLI_KEY` | No (unset-ok) | Tautulli API key — only needed for `sync-plex` |
-| `CLAWARR_HOST` | No (unset-ok) | LAN host of Tautulli for `sync-plex` and the *arr hosts for Traktarr/Retraktarr |
+| `TAUTULLI_URL` | No (unset-ok) | Tautulli base URL (e.g., `http://host:8181` or `https://...`) — only needed for `sync-plex` |
+| `TAUTULLI_API_KEY` | No (unset-ok) | Tautulli API key — only needed for `sync-plex` |
+| `RADARR_URL` | No (unset-ok) | Radarr base URL (e.g., `http://host:7878` or `https://...`) — used by Traktarr/Retraktarr |
+| `RADARR_API_KEY` | No (unset-ok) | Radarr API key — used by Traktarr/Retraktarr |
+| `SONARR_URL` | No (unset-ok) | Sonarr base URL (e.g., `http://host:8989` or `https://...`) — used by Traktarr/Retraktarr |
+| `SONARR_API_KEY` | No (unset-ok) | Sonarr API key — used by Traktarr/Retraktarr |
+| `CLAWARR_HOST` | No (unset-ok) | Optional fallback LAN host — builds `http://$CLAWARR_HOST:8181` for Tautulli, `http://$CLAWARR_HOST:7878` for Radarr, and `http://$CLAWARR_HOST:8989` for Sonarr when their `_URL` is unset |
 
 OAuth tokens are saved to `~/.config/clawarr/trakt_tokens.json` with `600` permissions (user read/write only) and refreshed automatically.
 
@@ -86,7 +91,7 @@ Sync Plex watch history (via Tautulli) to Trakt. This is the primary consumer of
 scripts/trakt.sh sync-plex
 ```
 
-Requires `TAUTULLI_KEY` + `CLAWARR_HOST`. Movies are matched by title + year; episodes by show title + season/episode number. Large libraries are synced with bulk `/sync/history` calls and matched IDs are cached locally. See `references/tracker-apis.md` for the Tautulli history endpoint, mapping strategy, and rate-limiting best practices.
+Requires `TAUTULLI_API_KEY` + `TAUTULLI_URL` (or `CLAWARR_HOST` as fallback). Movies are matched by title + year; episodes by show title + season/episode number. Large libraries are synced with bulk `/sync/history` calls and matched IDs are cached locally. See `references/tracker-apis.md` for the Tautulli history endpoint, mapping strategy, and rate-limiting best practices.
 
 ## Traktarr & Retraktarr
 

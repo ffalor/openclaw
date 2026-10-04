@@ -13,8 +13,9 @@ Plex collection, poster-overlay, and metadata automation (formerly Plex Meta Man
 | Variable | Purpose | Default |
 |---|---|---|
 | `KOMETA_SSH` | SSH host for the Docker host running Kometa (optional; unset = local Docker) | — |
+| `PLEX_URL` | Plex base URL (e.g., `http://host:32400` or `https://...`) | — |
 | `PLEX_TOKEN` | Plex token (optional; needed for some Plex lookups) | — |
-| `CLAWARR_HOST` | Service host (used by some status paths) | — |
+| `CLAWARR_HOST` | Optional fallback LAN host — builds `http://$CLAWARR_HOST:32400` when `PLEX_URL` is unset | — |
 | `KOMETA_DOCKER_CMD` / `KOMETA_CONTAINER` | Docker binary / container overrides | `docker` / `kometa` |
 | `DOCKER_CONFIG_BASE` | Docker config root for `kometa/config.yml` lookup (optional) | `/volume1/docker` |
 

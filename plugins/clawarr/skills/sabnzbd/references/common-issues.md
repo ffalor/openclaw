@@ -27,7 +27,7 @@ curl -H "X-Api-Key: $KEY" http://host:7878/api/v3/downloadclient | jq
 **Diagnosis:**
 ```bash
 # Check indexer health
-curl -H "X-Api-Key: $PROWLARR_KEY" http://host:9696/api/v1/indexer | jq '.[] | {name, enable, priority}'
+curl -H "X-Api-Key: $PROWLARR_API_KEY" http://host:9696/api/v1/indexer | jq '.[] | {name, enable, priority}'
 
 # Check download client queue limit
 curl -H "X-Api-Key: $KEY" http://host:7878/api/v3/downloadclient | jq '.[] | {name, protocol, priority}'

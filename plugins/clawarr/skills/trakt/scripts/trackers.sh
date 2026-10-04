@@ -295,7 +295,7 @@ cmd_status() {
   fi
   
   echo -n "Tautulli:      "
-  if [[ -n "${TAUTULLI_KEY:-}" ]]; then
+  if [[ -n "${TAUTULLI_API_KEY:-}" ]]; then
     echo "✅ API key configured"
   else
     echo "❌ Not configured"

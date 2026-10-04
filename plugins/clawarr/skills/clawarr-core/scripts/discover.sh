@@ -64,6 +64,6 @@ else
   echo "✅ Found $FOUND service(s)"
   echo ""
   echo "Next steps:"
-  echo "  1. Get API keys (see SKILL.md - API Key Discovery)"
-  echo "  2. Run status.sh to verify connectivity"
+  echo "  1. Configure each service: setup.sh <service> <url>"
+  echo "  2. Restart the OpenClaw Gateway, then run status.sh in a new run"
 fi

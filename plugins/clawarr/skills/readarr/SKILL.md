@@ -1,7 +1,7 @@
 ---
 name: readarr
 description: Manage your Readarr ebook library — search authors and books, add titles, monitor queue via API.
-metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "READARR_KEY"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": []}}}
 ---
 
 # Readarr
@@ -10,20 +10,21 @@ Manage your Readarr ebook/audiobook library with `scripts/library.sh` (stats, qu
 
 ## Prerequisites
 
-| Requirement | Value |
-|-------------|-------|
-| Binaries | `bash`, `curl`, `jq` |
-| `CLAWARR_HOST` | Host or IP running Readarr (e.g. `192.168.1.100`) |
-| `READARR_KEY` | Readarr API key (Settings → General → Security → API Key) |
+Required binaries: `bash`, `curl`, `jq`.
 
-```bash
-export CLAWARR_HOST=192.168.1.100
-export READARR_KEY=jkl012...
-```
+| Variable | Purpose |
+|----------|---------|
+| `READARR_URL` | Readarr base URL, e.g. `https://readarr.example.ts.net` or `http://192.168.1.100:8787` |
+| `READARR_API_KEY` | API key (Settings → General → Security → API Key) |
+| `CLAWARR_HOST` | Optional fallback when `READARR_URL` is unset: `http://$CLAWARR_HOST:8787` (`CLAWARR_SCHEME`, `READARR_PORT` override) |
 
-A missing sibling key (`SONARR_KEY`, `RADARR_KEY`, `LIDARR_KEY`) only disables that app — Readarr functionality is unaffected.
+Configure both with the `clawarr-core` skill: `scripts/setup.sh readarr <url>`. Over HTTPS the key is a protected OpenClaw store secret and `$READARR_API_KEY` holds an `oc-sent-…` sentinel; over plain HTTP it is plaintext in `~/.openclaw/.env`.
 
-Readarr API: `http://$CLAWARR_HOST:8787/api/v1` (or `$READARR_PORT` override), auth header `X-Api-Key: $READARR_KEY`. Full endpoint list: `references/api-endpoints.md`.
+A missing sibling (`SONARR_*`, `RADARR_*`, `LIDARR_*`) only disables that app — Readarr functionality is unaffected.
+
+Readarr API: `$READARR_URL/api/v1`, auth header `X-Api-Key: $READARR_API_KEY`. Full endpoint list: `references/api-endpoints.md`.
+
+**Calling the API yourself:** always use `$READARR_URL` with `$READARR_API_KEY`. Never add `--noproxy`, unset `HTTP_PROXY`/`HTTPS_PROXY`, or print the key: an `oc-sent-…` value only works through the OpenClaw egress proxy, over HTTPS, to the host it is bound to. On a 401 report it and point the user at `clawarr-core`'s `scripts/setup.sh`; do not try other variables.
 
 ## Library analytics (`scripts/library.sh`)
 
@@ -38,8 +39,8 @@ Only `stats` has a Readarr branch in the upstream script; every other `library.s
 ### Search authors
 
 ```bash
-curl -s -H "X-Api-Key: $READARR_KEY" \
-  "http://$CLAWARR_HOST:8787/api/v1/author/lookup?term=brandon%20sanderson" | jq '.[] | {authorName, id, genres}'
+curl -s -H "X-Api-Key: $READARR_API_KEY" \
+  "$READARR_URL/api/v1/author/lookup?term=brandon%20sanderson" | jq '.[] | {authorName, id, genres}'
 ```
 
 ### Add an author
@@ -47,13 +48,13 @@ curl -s -H "X-Api-Key: $READARR_KEY" \
 Look up first, then fetch quality profiles and root folders, then POST:
 
 ```bash
-curl -s -H "X-Api-Key: $READARR_KEY" \
-  "http://$CLAWARR_HOST:8787/api/v1/qualityprofile" | jq '.[] | {id, name}'
-curl -s -H "X-Api-Key: $READARR_KEY" \
-  "http://$CLAWARR_HOST:8787/api/v1/rootfolder" | jq '.[] | {id, path}'
+curl -s -H "X-Api-Key: $READARR_API_KEY" \
+  "$READARR_URL/api/v1/qualityprofile" | jq '.[] | {id, name}'
+curl -s -H "X-Api-Key: $READARR_API_KEY" \
+  "$READARR_URL/api/v1/rootfolder" | jq '.[] | {id, path}'
 
-curl -s -X POST -H "X-Api-Key: $READARR_KEY" -H "Content-Type: application/json" \
-  "http://$CLAWARR_HOST:8787/api/v1/author" \
+curl -s -X POST -H "X-Api-Key: $READARR_API_KEY" -H "Content-Type: application/json" \
+  "$READARR_URL/api/v1/author" \
   -d '{"authorName": "<name>", "qualityProfileId": 1, "rootFolderPath": "/books", "monitored": true,
        "addOptions": {"searchForMissingBooks": true}}'
 ```
@@ -61,17 +62,17 @@ curl -s -X POST -H "X-Api-Key: $READARR_KEY" -H "Content-Type: application/json"
 ### Search books
 
 ```bash
-curl -s -H "X-Api-Key: $READARR_KEY" \
-  "http://$CLAWARR_HOST:8787/api/v1/book/lookup?term=mistborn" | jq '.[] | {title, authorTitle, ratings}'
+curl -s -H "X-Api-Key: $READARR_API_KEY" \
+  "$READARR_URL/api/v1/book/lookup?term=mistborn" | jq '.[] | {title, authorTitle, ratings}'
 ```
 
 ### List library and queue
 
 ```bash
-curl -s -H "X-Api-Key: $READARR_KEY" \
-  "http://$CLAWARR_HOST:8787/api/v1/author" | jq '.[] | {authorName, monitored, ratings}'
-curl -s -H "X-Api-Key: $READARR_KEY" \
-  "http://$CLAWARR_HOST:8787/api/v1/queue" | jq '.'
+curl -s -H "X-Api-Key: $READARR_API_KEY" \
+  "$READARR_URL/api/v1/author" | jq '.[] | {authorName, monitored, ratings}'
+curl -s -H "X-Api-Key: $READARR_API_KEY" \
+  "$READARR_URL/api/v1/queue" | jq '.'
 ```
 
 Removal (`DELETE /author/{id}`) is destructive: run only on explicit user request, and confirm what will be removed first.

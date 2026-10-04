@@ -12,13 +12,18 @@
 
 set -euo pipefail
 
-HOST="${CLAWARR_HOST:-}"
-CLAWARR_SCHEME="${CLAWARR_SCHEME:-http}"
-SABNZBD_KEY="${SABNZBD_KEY:-}"
-SABNZBD_PORT="${SABNZBD_PORT:-8081}"
+SABNZBD_API_KEY="${SABNZBD_API_KEY:-}"
 
-if [[ -z "$HOST" ]]; then
-  echo "❌ Error: CLAWARR_HOST not set"
+# Base URL per service: <SERVICE>_URL, else ${CLAWARR_SCHEME:-http}://$CLAWARR_HOST:<port>
+arr_url() {
+  if [[ -n "$1" ]]; then printf '%s' "${1%/}"
+  elif [[ -n "${CLAWARR_HOST:-}" ]]; then printf '%s://%s:%s' "${CLAWARR_SCHEME:-http}" "$CLAWARR_HOST" "$2"
+  fi
+}
+SABNZBD_URL="$(arr_url "${SABNZBD_URL:-}" "${SABNZBD_PORT:-8081}")"
+
+if [[ -z "$SABNZBD_URL" ]]; then
+  echo "❌ Error: SABNZBD_URL (or CLAWARR_HOST) not set"
   exit 1
 fi
 
@@ -38,17 +43,17 @@ sabnzbd_api() {
   shift
   local params="$*"
   
-  if [[ -z "$SABNZBD_KEY" ]]; then
-    echo "❌ SABNZBD_KEY not set" >&2
+  if [[ -z "$SABNZBD_API_KEY" ]]; then
+    echo "❌ SABNZBD_API_KEY not set" >&2
     return 1
   fi
 
-  local url="${CLAWARR_SCHEME}://${HOST}:${SABNZBD_PORT}/api?apikey=${SABNZBD_KEY}&mode=${mode}&output=json"
+  local url="${SABNZBD_URL}/api?apikey=${SABNZBD_API_KEY}&mode=${mode}&output=json"
   if [[ -n "$params" ]]; then
     url="${url}&${params}"
   fi
   
-  curl -fsS --connect-timeout 3 --max-time 20 "$url" 2>/dev/null
+  curl -fsS --connect-timeout 3 --max-time 20 "$url"
 }
 
 # Command: active
@@ -213,8 +218,8 @@ cmd_queue() {
 # Main command router
 COMMAND="${1:-help}"
 
-if [[ -z "$SABNZBD_KEY" && "$COMMAND" != "help" && "$COMMAND" != "--help" && "$COMMAND" != "-h" ]]; then
-  echo "⚠️  SABNZBD_KEY not set; skipping SABnzbd command"
+if [[ -z "$SABNZBD_API_KEY" && "$COMMAND" != "help" && "$COMMAND" != "--help" && "$COMMAND" != "-h" ]]; then
+  echo "⚠️  SABNZBD_API_KEY not set; skipping SABnzbd command"
   exit 0
 fi
 

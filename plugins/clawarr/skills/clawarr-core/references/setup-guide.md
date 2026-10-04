@@ -408,11 +408,13 @@ After installation on any platform:
 
 ### 1. Get API Keys
 
-Use ClawARR discovery:
+Use ClawARR discovery to find what runs on a host, then configure each service with
+`scripts/setup.sh <service> <url>` (see step 9), which fetches and stores keys without printing them:
 ```bash
-export CLAWARR_HOST=192.168.1.100
-scripts/discover.sh $CLAWARR_HOST
+scripts/discover.sh 192.168.1.100
 ```
+
+The manual commands below print the key; run them yourself in a terminal, never through an agent:
 
 Get API keys via `/initialize.js`:
 ```bash
@@ -537,54 +539,53 @@ Get Plex token for API:
      - Root Folder: /tv
      - Quality Profile: HD-1080p
 
-### 8. Test with ClawARR
+### 8. Configure ClawARR
+
+Run setup once per service with the URL the OpenClaw Gateway should use:
 
 ```bash
-# Set environment
-export CLAWARR_HOST=192.168.1.100
-export RADARR_KEY=xxxx
-export SONARR_KEY=yyyy
-export OVERSEERR_KEY=zzzz
+scripts/setup.sh radarr http://192.168.1.100:7878
+scripts/setup.sh sonarr https://sonarr.example.ts.net
+scripts/setup.sh overseerr http://192.168.1.100:5055
+```
 
-# Check status
+Then restart the Gateway and, in a new agent run:
+
+```bash
 scripts/status.sh
-
-# Search
 scripts/search.sh "dune" movie
-
-# Check queue
 scripts/queue.sh
 ```
 
-### 9. Store Configuration
+### 9. Where configuration is stored
 
-Put the keys in OpenClaw's global env file, `~/.openclaw/.env` (or
-`$OPENCLAW_STATE_DIR/.env`). The Gateway loads it at startup, which is what
-satisfies each skill's `requires.env` gate — a file you only `source` in your
-own shell is invisible to the Gateway, so the skills would never load.
+`setup.sh` picks the store from the URL scheme:
+
+- **`https://` services:** the key goes in the OpenClaw shared secret store as a protected
+  secret (`openclaw secrets store set SONARR_API_KEY --allow-host sonarr.example.ts.net`).
+  Agent commands only receive an `oc-sent-…` sentinel; the Gateway's secret egress proxy
+  substitutes the real key at HTTPS egress to the allowed host. Needs
+  `secrets.egressProxy.enabled: true`. When setup can't read the key itself, the agent asks
+  you for it with OpenClaw's `secrets` tool (a masked prompt — never type keys into chat).
+- **`http://` services:** the key goes in plaintext in OpenClaw's global env file,
+  `~/.openclaw/.env` (or `$OPENCLAW_STATE_DIR/.env`). The egress proxy refuses plain HTTP,
+  so the store can't protect it.
+- `<SERVICE>_URL` always goes in `~/.openclaw/.env`.
 
 ```bash
-# ~/.openclaw/.env
-CLAWARR_HOST=192.168.1.100
-SONARR_KEY=abc123...
-RADARR_KEY=def456...
-LIDARR_KEY=ghi789...
-READARR_KEY=jkl012...
-PROWLARR_KEY=mno345...
-BAZARR_KEY=pqr678...
-OVERSEERR_KEY=stu901...
-PLEX_TOKEN=vwx234...
-TAUTULLI_KEY=yz567...
-```
-
-Lock it down and restart the Gateway so it picks up the new values:
-```bash
-chmod 600 ~/.openclaw/.env
+# ~/.openclaw/.env (example)
+SONARR_URL=https://sonarr.example.ts.net   # key lives in the secret store
+RADARR_URL=http://192.168.1.100:7878
+RADARR_API_KEY=def456...                    # http service: plaintext here
 ```
 
 Notes:
-- Include only the services you run; unset keys are skipped, not errors.
-- Values already in the Gateway's process environment win over this file.
+- The Gateway reads `~/.openclaw/.env` at startup: restart it after changes
+  (`openclaw gateway restart`). Store changes reach new agent runs.
+- Keep each key name in exactly one place — the store or the file, not both.
+- Values already in the Gateway's process environment (e.g. a Docker template variable)
+  win over this file; remove old ones there.
+- Include only the services you run; unconfigured services are skipped, not errors.
 - Don't use a workspace `.env` (in the working directory) for keys — OpenClaw
   treats it as low-trust and ignores credentials there.
 - **Docker:** `~/.openclaw` must be a mapped volume or the file is lost when
@@ -592,11 +593,9 @@ Notes:
   (`/home/node/.openclaw`); root-based templates (e.g. Unraid) use
   `/root/.openclaw`. On Unraid that's typically
   `/mnt/user/appdata/openclaw/config/.env` on the host.
-- **Per-skill scoping (optional):** instead of the global file, set keys under
-  `skills.entries.<skill>.env` in `~/.openclaw/openclaw.json` so each skill
-  only sees its own. These are injected for host runs only, not sandboxed ones.
 
-To run the scripts by hand from a shell, export the same file first:
+To run the scripts by hand from a shell, export the same file first (store secrets are only
+available to Gateway-run commands):
 ```bash
 set -a; source ~/.openclaw/.env; set +a
 scripts/status.sh

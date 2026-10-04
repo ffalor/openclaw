@@ -101,14 +101,14 @@ When cloned from git:
   },
   "radarr": {
     "url": "http://localhost:7878",
-    "api_key": "YOUR_RADARR_KEY",
+    "api_key": "YOUR_RADARR_API_KEY",
     "root_folder": "/movies",
     "quality_profile": "HD-1080p",
     "minimum_availability": "released"
   },
   "sonarr": {
     "url": "http://localhost:8989",
-    "api_key": "YOUR_SONARR_KEY",
+    "api_key": "YOUR_SONARR_API_KEY",
     "root_folder": "/tv",
     "quality_profile": "HD-1080p",
     "language_profile": "English"
@@ -186,13 +186,13 @@ When cloned from git:
   },
   "radarr": {
     "url": "http://localhost:7878",
-    "api_key": "YOUR_RADARR_KEY",
+    "api_key": "YOUR_RADARR_API_KEY",
     "list_name": "radarr-library",
     "list_privacy": "private"
   },
   "sonarr": {
     "url": "http://localhost:8989",
-    "api_key": "YOUR_SONARR_KEY",
+    "api_key": "YOUR_SONARR_API_KEY",
     "list_name": "sonarr-library",
     "list_privacy": "private"
   },
@@ -596,6 +596,8 @@ The ClawARR suite provides convenient wrappers:
 ./trackers.sh setup
 # Choose option 5 (Traktarr) or 6 (Retraktarr)
 ```
+
+**Important:** Traktarr/Retraktarr require real API keys in their config files, not OpenClaw secret-store sentinels (`oc-sent-…`). `trakt.sh` refuses to write an `oc-sent-…` value into their config; the user has to enter the real key at the prompt themselves (in a terminal, not in chat).
 
 ### Status Checks
 ```bash

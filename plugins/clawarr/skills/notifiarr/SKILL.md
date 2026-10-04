@@ -1,7 +1,7 @@
 ---
 name: notifiarr
 description: Unified Notifiarr notifications — status, connected services, test alerts, and recent logs.
-metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": []}}}
 ---
 
 # Notifiarr
@@ -16,21 +16,19 @@ notifications, and view the recent notification log. See
 
 Required binaries: `bash`, `curl`, `jq`.
 
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `CLAWARR_HOST` | Yes | Host IP/hostname of the Notifiarr instance |
-| `NOTIFIARR_KEY` | No | Notifiarr API key (script works unauthenticated for local status if unset) |
-| `NOTIFIARR_PORT` | No | Notifiarr HTTP port (default: `5454`) |
+| Variable | Purpose |
+|----------|---------|
+| `NOTIFIARR_URL` | Notifiarr base URL, e.g. `https://notifiarr.example.ts.net` or `http://192.168.1.100:5454` |
+| `NOTIFIARR_API_KEY` | API key (optional; local status works unauthenticated) |
+| `CLAWARR_HOST` | Optional fallback when `NOTIFIARR_URL` is unset: `http://$CLAWARR_HOST:5454` (`CLAWARR_SCHEME`, `NOTIFIARR_PORT` override) |
 
-```bash
-export CLAWARR_HOST=192.168.1.100
-export NOTIFIARR_KEY=xyz123...
-# export NOTIFIARR_PORT=5454  # only if non-default
-```
+Configure both with the `clawarr-core` skill: `scripts/setup.sh notifiarr <url>`. Over HTTPS the key is a protected OpenClaw store secret and `$NOTIFIARR_API_KEY` holds an `oc-sent-…` sentinel; over plain HTTP it is plaintext in `~/.openclaw/.env`.
 
-Notifiarr needs a Discord webhook to actually deliver notifications — configure
-it in the web UI at `http://<host>:5454` along with *arr service URLs/keys and
-notification triggers (grabs, imports, health, upgrades, failures).
+Notifiarr needs a Discord webhook to actually deliver notifications — configure it in the Notifiarr web UI along with *arr service URLs/keys and notification triggers (grabs, imports, health, upgrades, failures).
+
+Notifiarr API: `$NOTIFIARR_URL/api`, auth header `X-Api-Key: $NOTIFIARR_API_KEY`.
+
+**Calling the API yourself:** always use `$NOTIFIARR_URL` with `$NOTIFIARR_API_KEY`. Never add `--noproxy`, unset `HTTP_PROXY`/`HTTPS_PROXY`, or print the key: an `oc-sent-…` value only works through the OpenClaw egress proxy, over HTTPS, to the host it is bound to. On a 401 report it and point the user at `clawarr-core`'s `scripts/setup.sh`; do not try other variables.
 
 ## Scripts
 
@@ -71,11 +69,12 @@ scripts/notifiarr.sh logs
 
 Connectivity checklist:
 
-1. Web UI reachable: `curl -s http://$CLAWARR_HOST:5454` (no API key needed for the reachability check).
-2. `CLAWARR_HOST` is set and points at the Notifiarr machine (no scheme, no port).
-3. If authenticated calls fail, verify `NOTIFIARR_KEY` against the Notifiarr settings.
-4. Port `5454` is open on the host firewall and the container is running (`docker logs notifiarr`).
-5. Container logs show no errors: `docker logs notifiarr --tail 50`
+1. Web UI reachable: `curl -s $NOTIFIARR_URL` (no API key needed for the reachability check).
+2. `NOTIFIARR_URL` is set (or `CLAWARR_HOST` as the http fallback) and points at the Notifiarr instance; run `scripts/setup.sh notifiarr <url>` from the clawarr-core skill to (re)configure it.
+3. If authenticated calls fail, verify `NOTIFIARR_API_KEY` against the Notifiarr settings.
+4. A 401 with an `oc-sent-…` key means the request bypassed the OpenClaw egress proxy (`--noproxy`, unset proxy vars, plain http) or the URL's host isn't in the secret's allowed hosts — never work around it by using another variable.
+5. Port `5454` is open on the host firewall and the container is running (`docker logs notifiarr`).
+6. Container logs show no errors: `docker logs notifiarr --tail 50`
 
 ## References
 

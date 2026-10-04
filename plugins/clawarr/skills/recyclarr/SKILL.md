@@ -13,7 +13,6 @@ TRaSH Guides quality-profile sync for Sonarr and Radarr. Keeps quality profiles 
 | Variable | Purpose | Default |
 |---|---|---|
 | `RECYCLARR_SSH` | SSH host for the Docker host running recyclarr (optional; unset = local Docker) | — |
-| `CLAWARR_HOST` | Service host (used by some status paths) | — |
 | `RECYCLARR_DOCKER_CMD` | Docker binary override | `docker` |
 | `RECYCLARR_CONTAINER` | Container name override | `recyclarr` |
 | `DOCKER_CONFIG_BASE` | Docker config root for `recyclarr.yml` lookup (optional) | `/volume1/docker` |

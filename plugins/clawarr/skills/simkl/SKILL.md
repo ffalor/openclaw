@@ -14,8 +14,9 @@ Simkl integration for watch-history tracking across movies, shows, and anime: OA
 |----------|----------|---------|
 | `SIMKL_CLIENT_ID` | Yes | Simkl OAuth app client ID (register at `https://simkl.com/settings/developer`) |
 | `SIMKL_CLIENT_SECRET` | Yes | Simkl OAuth app client secret |
-| `TAUTULLI_KEY` | No (unset-ok) | Tautulli API key — only needed for `sync` |
-| `CLAWARR_HOST` | No (unset-ok) | LAN host of Tautulli — only needed for `sync` |
+| `TAUTULLI_URL` | No (unset-ok) | Tautulli base URL (e.g., `http://host:8181` or `https://...`) — only needed for `sync` |
+| `TAUTULLI_API_KEY` | No (unset-ok) | Tautulli API key — only needed for `sync` |
+| `CLAWARR_HOST` | No (unset-ok) | Optional fallback LAN host — builds `http://$CLAWARR_HOST:8181` when `TAUTULLI_URL` is unset |
 
 OAuth tokens are saved to `~/.config/clawarr/simkl_tokens.json` with `600` permissions (user read/write only).
 
@@ -48,7 +49,7 @@ History reads from `/sync/all-items/{movies,shows,anime}/watched`; watchlists fr
 scripts/simkl.sh sync                  # Sync with Plex (via Tautulli)
 ```
 
-Requires `TAUTULLI_KEY` + `CLAWARR_HOST`. Fetches recent Plex watch history from Tautulli and reports watched movies and shows. Full ID-matched write-back to Simkl (`POST /sync/history`, `POST /sync/watched`) is not yet implemented in the script — it lists what would sync.
+Requires `TAUTULLI_API_KEY` + `TAUTULLI_URL` (or `CLAWARR_HOST` as fallback). Fetches recent Plex watch history from Tautulli and reports watched movies and shows. Full ID-matched write-back to Simkl (`POST /sync/history`, `POST /sync/watched`) is not yet implemented in the script — it lists what would sync.
 
 ## Reference Documentation
 

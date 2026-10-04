@@ -1,23 +1,30 @@
 ---
 name: tautulli
 description: Plex viewing analytics (activity, history, top content, user stats) via analytics.sh and Tautulli API.
-metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "TAUTULLI_KEY"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": []}}}
 ---
 
 # Tautulli
 
-Plex viewing analytics via the Tautulli API. Uses `scripts/analytics.sh` (verbatim upstream copy, shared with the plex skill — same file, this skill documents the Tautulli-backed commands).
+Plex viewing analytics via the Tautulli API. Uses `scripts/analytics.sh` (adapted from the upstream `clawarr-suite` bundle (per-service URLs, OpenClaw secret-store support), shared with the plex skill — same file, this skill documents the Tautulli-backed commands).
 
-## Requires
+## Prerequisites
 
-| Variable | Purpose | Default |
-|---|---|---|
-| `CLAWARR_HOST` | Tautulli server host | — |
-| `TAUTULLI_KEY` | Tautulli API key (`?apikey=`) | — |
-| `TAUTULLI_PORT` | Tautulli HTTP port | `8181` |
-| `DOCKER_CONFIG_BASE` | Docker config root (optional, unused here) | `/volume1/docker` |
+Required binaries: `bash`, `curl`, `jq`.
 
-Find the API key in Tautulli: Settings → Web Interface → API → API Key. Optional tools `bc`/`sed` are used by some script paths.
+| Variable | Purpose |
+|----------|---------|
+| `TAUTULLI_URL` | Tautulli base URL, e.g. `https://tautulli.example.ts.net` or `http://192.168.1.100:8181` |
+| `TAUTULLI_API_KEY` | API key (Settings → Web Interface → API → API Key) |
+| `CLAWARR_HOST` | Optional fallback when `TAUTULLI_URL` is unset: `http://$CLAWARR_HOST:8181` (`CLAWARR_SCHEME`, `TAUTULLI_PORT` override) |
+
+Configure both with the `clawarr-core` skill: `scripts/setup.sh tautulli <url>`. Over HTTPS the key is a protected OpenClaw store secret and `$TAUTULLI_API_KEY` holds an `oc-sent-…` sentinel; over plain HTTP it is plaintext in `~/.openclaw/.env`.
+
+Plex-backed commands also read `PLEX_URL` / `PLEX_TOKEN` (see the plex skill). Optional tools `bc`/`sed` are used by some script paths.
+
+Tautulli API: `$TAUTULLI_URL/api/v2?apikey=$TAUTULLI_API_KEY&cmd=…` (key in the query string; the egress proxy substitutes it there too).
+
+**Calling the API yourself:** always use `$TAUTULLI_URL` with `$TAUTULLI_API_KEY`. Never add `--noproxy`, unset `HTTP_PROXY`/`HTTPS_PROXY`, or print the key: an `oc-sent-…` value only works through the OpenClaw egress proxy, over HTTPS, to the host it is bound to. On a 401 report it and point the user at `clawarr-core`'s `scripts/setup.sh`; do not try other variables.
 
 ## Commands (`scripts/analytics.sh`)
 
@@ -44,8 +51,9 @@ The `library-stats` and `recent-added` commands hit Plex directly and are docume
 
 ## Connectivity checklist
 
-1. `CLAWARR_HOST` points at the Tautulli server host
-2. `TAUTULLI_KEY` is set (verify with `?apikey=<key>&cmd=status`)
-3. Port 8181 reachable (or `TAUTULLI_PORT` override matches)
-4. `jq` installed for JSON parsing
-5. Tautulli is linked to a running Plex server
+1. `TAUTULLI_URL` is set (or `CLAWARR_HOST` as the http fallback) and points at the Tautulli instance; run `scripts/setup.sh tautulli <url>` from the clawarr-core skill to (re)configure it.
+2. `TAUTULLI_API_KEY` is set (verify with `?apikey=<key>&cmd=status`)
+3. A 401 with an `oc-sent-…` key means the request bypassed the OpenClaw egress proxy (`--noproxy`, unset proxy vars, plain http) or the URL's host isn't in the secret's allowed hosts — never work around it by using another variable.
+4. Port 8181 reachable (or `TAUTULLI_PORT` override matches)
+5. `jq` installed for JSON parsing
+6. Tautulli is linked to a running Plex server

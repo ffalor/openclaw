@@ -1,7 +1,7 @@
 ---
 name: overseerr
 description: Manage Overseerr media requests — list, approve, deny, and inspect pending movie/TV requests.
-metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "OVERSEERR_KEY"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": []}}}
 ---
 
 # Overseerr
@@ -15,15 +15,17 @@ webhooks, and collections).
 
 Required binaries: `bash`, `curl`, `jq`.
 
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `CLAWARR_HOST` | Yes | Host IP/hostname of the Overseerr instance (port 5055) |
-| `OVERSEERR_KEY` | Yes | Overseerr API key (Settings → General → API Key) |
+| Variable | Purpose |
+|----------|---------|
+| `OVERSEERR_URL` | Overseerr base URL, e.g. `https://overseerr.example.ts.net` or `http://192.168.1.100:5055` |
+| `OVERSEERR_API_KEY` | API key (Settings → General → API Key) |
+| `CLAWARR_HOST` | Optional fallback when `OVERSEERR_URL` is unset: `http://$CLAWARR_HOST:5055` (`CLAWARR_SCHEME`, `OVERSEERR_PORT` override) |
 
-```bash
-export CLAWARR_HOST=192.168.1.100
-export OVERSEERR_KEY=stu901...
-```
+Configure both with the `clawarr-core` skill: `scripts/setup.sh overseerr <url>`. Over HTTPS the key is a protected OpenClaw store secret and `$OVERSEERR_API_KEY` holds an `oc-sent-…` sentinel; over plain HTTP it is plaintext in `~/.openclaw/.env`.
+
+Overseerr API: `$OVERSEERR_URL/api/v1`, auth header `X-Api-Key: $OVERSEERR_API_KEY`.
+
+**Calling the API yourself:** always use `$OVERSEERR_URL` with `$OVERSEERR_API_KEY`. Never add `--noproxy`, unset `HTTP_PROXY`/`HTTPS_PROXY`, or print the key: an `oc-sent-…` value only works through the OpenClaw egress proxy, over HTTPS, to the host it is bound to. On a 401 report it and point the user at `clawarr-core`'s `scripts/setup.sh`; do not try other variables.
 
 ## Scripts
 
@@ -68,11 +70,12 @@ over each result.
 
 Connectivity checklist:
 
-1. Host reachable: `curl -s "http://$CLAWARR_HOST:5055/api/v1/status?apikey=$OVERSEERR_KEY"`
-2. `CLAWARR_HOST` is set and points at the Overseerr machine (no scheme, no port).
-3. `OVERSEERR_KEY` matches Settings → General in the Overseerr web UI.
-4. Port `5055` is open on the host firewall and the container is running (`docker logs overseerr`).
-5. Container logs show no errors: `docker logs overseerr --tail 50`
+1. Host reachable: `curl -s "$OVERSEERR_URL/api/v1/status?apikey=$OVERSEERR_API_KEY"`
+2. `OVERSEERR_URL` is set (or `CLAWARR_HOST` as the http fallback) and points at the Overseerr instance; run `scripts/setup.sh overseerr <url>` from the clawarr-core skill to (re)configure it.
+3. `OVERSEERR_API_KEY` matches Settings → General in the Overseerr web UI.
+4. A 401 with an `oc-sent-…` key means the request bypassed the OpenClaw egress proxy (`--noproxy`, unset proxy vars, plain http) or the URL's host isn't in the secret's allowed hosts — never work around it by using another variable.
+5. Port `5055` is open on the host firewall and the container is running (`docker logs overseerr`).
+6. Container logs show no errors: `docker logs overseerr --tail 50`
 
 ## References
 

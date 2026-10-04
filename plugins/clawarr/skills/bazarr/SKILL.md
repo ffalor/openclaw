@@ -1,7 +1,7 @@
 ---
 name: bazarr
 description: Manage Bazarr subtitles — find missing subtitles, browse history, and trigger searches.
-metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "BAZARR_KEY"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": []}}}
 ---
 
 # Bazarr
@@ -14,15 +14,17 @@ languages. See `references/api-endpoints.md` for the raw API.
 
 Required binaries: `bash`, `curl`, `jq`.
 
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `CLAWARR_HOST` | Yes | Host IP/hostname of the Bazarr instance (port 6767) |
-| `BAZARR_KEY` | Yes | Bazarr API key (Settings → General → API Key) |
+| Variable | Purpose |
+|----------|---------|
+| `BAZARR_URL` | Bazarr base URL, e.g. `https://bazarr.example.ts.net` or `http://192.168.1.100:6767` |
+| `BAZARR_API_KEY` | API key (Settings → General → API Key) |
+| `CLAWARR_HOST` | Optional fallback when `BAZARR_URL` is unset: `http://$CLAWARR_HOST:6767` (`CLAWARR_SCHEME`, `BAZARR_PORT` override) |
 
-```bash
-export CLAWARR_HOST=192.168.1.100
-export BAZARR_KEY=pqr678...
-```
+Configure both with the `clawarr-core` skill: `scripts/setup.sh bazarr <url>`. Over HTTPS the key is a protected OpenClaw store secret and `$BAZARR_API_KEY` holds an `oc-sent-…` sentinel; over plain HTTP it is plaintext in `~/.openclaw/.env`.
+
+Bazarr API: `$BAZARR_URL/api`, auth header `X-API-Key: $BAZARR_API_KEY`.
+
+**Calling the API yourself:** always use `$BAZARR_URL` with `$BAZARR_API_KEY`. Never add `--noproxy`, unset `HTTP_PROXY`/`HTTPS_PROXY`, or print the key: an `oc-sent-…` value only works through the OpenClaw egress proxy, over HTTPS, to the host it is bound to. On a 401 report it and point the user at `clawarr-core`'s `scripts/setup.sh`; do not try other variables.
 
 ## Scripts
 
@@ -61,11 +63,12 @@ scripts/subtitles.sh languages
 
 Connectivity checklist:
 
-1. Host reachable: `curl -s http://$CLAWARR_HOST:6767/api/system/status -H "X-API-Key: $BAZARR_KEY"`
-2. `CLAWARR_HOST` is set and points at the Bazarr machine (no scheme, no port).
-3. `BAZARR_KEY` matches Settings → General in the Bazarr web UI.
-4. Port `6767` is open on the host firewall and the container is running (`docker logs bazarr`).
-5. Container logs show no errors: `docker logs bazarr --tail 50`
+1. Host reachable: `curl -s $BAZARR_URL/api/system/status -H "X-API-Key: $BAZARR_API_KEY"`
+2. `BAZARR_URL` is set (or `CLAWARR_HOST` as the http fallback) and points at the Bazarr instance; run `scripts/setup.sh bazarr <url>` from the clawarr-core skill to (re)configure it.
+3. `BAZARR_API_KEY` matches Settings → General in the Bazarr web UI.
+4. A 401 with an `oc-sent-…` key means the request bypassed the OpenClaw egress proxy (`--noproxy`, unset proxy vars, plain http) or the URL's host isn't in the secret's allowed hosts — never work around it by using another variable.
+5. Port `6767` is open on the host firewall and the container is running (`docker logs bazarr`).
+6. Container logs show no errors: `docker logs bazarr --tail 50`
 
 ## References
 

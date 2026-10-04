@@ -14,23 +14,23 @@ under `plugins/` is a separately installable bundle, listed in
 
 ## Skills
 
-| Skill | Keys to load | What it does |
-|-------|--------------|--------------|
-| `clawarr-core` | `CLAWARR_HOST` | Guided setup/key discovery, service health, diagnostics, dashboard generation |
-| `sonarr` | `CLAWARR_HOST`, `SONARR_KEY` | TV library analytics, content management, search, queue |
-| `radarr` | `CLAWARR_HOST`, `RADARR_KEY` | Movie library analytics, content management, search, queue |
-| `lidarr` | `CLAWARR_HOST`, `LIDARR_KEY` | Music library analytics and search |
-| `readarr` | `CLAWARR_HOST`, `READARR_KEY` | Book library API workflows (authors, books, queue) |
-| `prowlarr` | `CLAWARR_HOST`, `PROWLARR_KEY` | Indexer management, testing, cross-app sync |
-| `overseerr` | `CLAWARR_HOST`, `OVERSEERR_KEY` | Request listing, approval, stats |
-| `plex` | `CLAWARR_HOST`, `PLEX_TOKEN` | Plex library stats and recently-added |
-| `tautulli` | `CLAWARR_HOST`, `TAUTULLI_KEY` | Viewing analytics: streams, history, users, peak hours |
-| `sabnzbd` | `CLAWARR_HOST`, `SABNZBD_KEY` | Download queue, speed, pause/resume, history |
-| `bazarr` | `CLAWARR_HOST`, `BAZARR_KEY` | Subtitle wanted/search/history/languages |
-| `notifiarr` | `CLAWARR_HOST` | Notification status, services, test alerts (`NOTIFIARR_KEY` for writes) |
+| Skill | Configuration (`setup.sh` is in clawarr-core) | What it does |
+|-------|---------------|--------------|
+| `clawarr-core` | provides `scripts/setup.sh <service> <url>` | Guided setup/key discovery, service health, diagnostics, dashboard generation |
+| `sonarr` | `scripts/setup.sh sonarr <url>` | TV library analytics, content management, search, queue |
+| `radarr` | `scripts/setup.sh radarr <url>` | Movie library analytics, content management, search, queue |
+| `lidarr` | `scripts/setup.sh lidarr <url>` | Music library analytics and search |
+| `readarr` | `scripts/setup.sh readarr <url>` | Book library API workflows (authors, books, queue) |
+| `prowlarr` | `scripts/setup.sh prowlarr <url>` | Indexer management, testing, cross-app sync |
+| `overseerr` | `scripts/setup.sh overseerr <url>` | Request listing, approval, stats |
+| `plex` | `scripts/setup.sh plex <url>` | Plex library stats and recently-added |
+| `tautulli` | `scripts/setup.sh tautulli <url>` | Viewing analytics: streams, history, users, peak hours |
+| `sabnzbd` | `scripts/setup.sh sabnzbd <url>` | Download queue, speed, pause/resume, history |
+| `bazarr` | `scripts/setup.sh bazarr <url>` | Subtitle wanted/search/history/languages |
+| `notifiarr` | `scripts/setup.sh notifiarr <url>` | Notification status, services, test alerts |
 | `recyclarr` | `RECYCLARR_SSH` | TRaSH Guides quality-profile sync |
 | `kometa` | `KOMETA_SSH` | Plex collections and overlays |
-| `maintainerr` | `CLAWARR_HOST` | Library cleanup rules and runs |
+| `maintainerr` | `MAINTAINERR_URL` (no key) | Library cleanup rules and runs |
 | `unpackerr` | `UNPACKERR_SSH` | Archive extraction monitoring |
 | `trakt` | `TRAKT_CLIENT_ID`, `TRAKT_CLIENT_SECRET` | Trakt history/sync/scrobbling/lists + Traktarr/Retraktarr |
 | `simkl` | `SIMKL_CLIENT_ID`, `SIMKL_CLIENT_SECRET` | Simkl auth, sync, watchlist |
@@ -87,15 +87,60 @@ openclaw plugins inspect clawarr   # expect Format: bundle, Bundle format: agent
 Mapped features are available in the next session (no Gateway restart needed
 for install; restart if the Gateway was stopped).
 
-## Configure
+## Configuration
 
-Each skill declares its own required keys in `SKILL.md` frontmatter
-(only the bins and env vars its scripts hard-require: usually `bash, curl, jq`
-plus 0–2 env vars; kometa/recyclarr/unpackerr need `docker` *or* `ssh` via
-`anyBins`, and lidarr also needs `bc`) and loads as soon as those exist — set
-only what you use. See
-[`plugins/clawarr/skills/clawarr-core/.env.example`](plugins/clawarr/skills/clawarr-core/.env.example)
-for endpoint overrides.
+Service configuration is managed per-service via the setup script. Each service
+requires a base URL and API key:
+
+### Setup per service
+
+Run setup on the OpenClaw Gateway host to configure each service:
+
+```bash
+scripts/setup.sh <service> <url>
+# Examples:
+scripts/setup.sh sonarr https://sonarr.example.ts.net
+scripts/setup.sh plex http://192.168.1.100:32400
+scripts/setup.sh radarr http://192.168.1.100:7878
+```
+
+List available services:
+```bash
+scripts/setup.sh --list
+```
+
+### Configuration storage
+
+- **HTTPS URLs** (`https://…`): The API key is stored securely in OpenClaw's
+  secret store, bound to the service's hostname. Agents receive a sentinel value
+  (`oc-sent-…`) and the Gateway's egress proxy substitutes the real key at HTTPS
+  connection time. Requires `secrets.egressProxy.enabled: true` in OpenClaw
+  configuration.
+
+- **HTTP URLs** (`http://…`): The API key is stored plaintext in the Gateway's
+  environment file at `~/.openclaw/.env` (or `$OPENCLAW_STATE_DIR/.env`). The
+  egress proxy cannot proxy plain HTTP, so keys are stored locally.
+
+- **Auto-detection**: If setup can auto-detect the key from the service (e.g.,
+  `*arr` `/initialize.json`), it is stored automatically. Otherwise:
+  - HTTPS: setup exits with code 3 and you supply the key via OpenClaw's
+    `secrets` tool (`request` action — masked input, never enters chat)
+  - HTTP: setup prompts for the key via hidden terminal input, or exits 4
+    instructing you to manually add the line to `~/.openclaw/.env`
+
+- **Service URLs** are always stored in `~/.openclaw/.env`. Restart the Gateway
+  after setup: `openclaw gateway restart`
+
+### Environment variables
+
+Services are configured with:
+- `<SERVICE>_URL` — base URL (e.g., `SONARR_URL=https://sonarr.example.ts.net`)
+- `<SERVICE>_API_KEY` — API key (for *arr services)
+- `PLEX_URL` + `PLEX_TOKEN` — Plex service
+
+**Fallback** (when `<SERVICE>_URL` is unset):
+- `CLAWARR_HOST` — constructs `http://$CLAWARR_HOST:<default-port>` for the service
+- `CLAWARR_SCHEME` — optional scheme override (defaults to `http`)
 
 Per-skill enablement (bundle installed, but only some skills active):
 

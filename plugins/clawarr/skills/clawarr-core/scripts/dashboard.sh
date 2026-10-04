@@ -14,32 +14,41 @@
 
 set -euo pipefail
 
-HOST="${CLAWARR_HOST:-}"
-CLAWARR_SCHEME="${CLAWARR_SCHEME:-http}"
-SONARR_KEY="${SONARR_KEY:-}"
-SONARR_PORT="${SONARR_PORT:-8989}"
-RADARR_KEY="${RADARR_KEY:-}"
-RADARR_PORT="${RADARR_PORT:-7878}"
-READARR_KEY="${READARR_KEY:-}"
-READARR_PORT="${READARR_PORT:-8787}"
-TAUTULLI_KEY="${TAUTULLI_KEY:-}"
-TAUTULLI_PORT="${TAUTULLI_PORT:-8181}"
-SABNZBD_KEY="${SABNZBD_KEY:-}"
-SABNZBD_PORT="${SABNZBD_PORT:-8081}"
-PROWLARR_KEY="${PROWLARR_KEY:-}"
-PROWLARR_PORT="${PROWLARR_PORT:-9696}"
-OVERSEERR_KEY="${OVERSEERR_KEY:-}"
-OVERSEERR_PORT="${OVERSEERR_PORT:-5055}"
-BAZARR_KEY="${BAZARR_KEY:-}"
+SONARR_API_KEY="${SONARR_API_KEY:-}"
+RADARR_API_KEY="${RADARR_API_KEY:-}"
+READARR_API_KEY="${READARR_API_KEY:-}"
+TAUTULLI_API_KEY="${TAUTULLI_API_KEY:-}"
+SABNZBD_API_KEY="${SABNZBD_API_KEY:-}"
+PROWLARR_API_KEY="${PROWLARR_API_KEY:-}"
+OVERSEERR_API_KEY="${OVERSEERR_API_KEY:-}"
+BAZARR_API_KEY="${BAZARR_API_KEY:-}"
 PLEX_TOKEN="${PLEX_TOKEN:-}"
-PLEX_HOST="${PLEX_HOST:-$HOST}"
-PLEX_SCHEME="${PLEX_SCHEME:-http}"
-PLEX_PORT="${PLEX_PORT:-32400}"
+
+# Base URL per service: <SERVICE>_URL, else ${CLAWARR_SCHEME:-http}://$CLAWARR_HOST:<port>
+arr_url() {
+  if [[ -n "$1" ]]; then printf '%s' "${1%/}"
+  elif [[ -n "${CLAWARR_HOST:-}" ]]; then printf '%s://%s:%s' "${CLAWARR_SCHEME:-http}" "$CLAWARR_HOST" "$2"
+  fi
+}
+SONARR_URL="$(arr_url "${SONARR_URL:-}" "${SONARR_PORT:-8989}")"
+RADARR_URL="$(arr_url "${RADARR_URL:-}" "${RADARR_PORT:-7878}")"
+READARR_URL="$(arr_url "${READARR_URL:-}" "${READARR_PORT:-8787}")"
+TAUTULLI_URL="$(arr_url "${TAUTULLI_URL:-}" "${TAUTULLI_PORT:-8181}")"
+SABNZBD_URL="$(arr_url "${SABNZBD_URL:-}" "${SABNZBD_PORT:-8081}")"
+PROWLARR_URL="$(arr_url "${PROWLARR_URL:-}" "${PROWLARR_PORT:-9696}")"
+OVERSEERR_URL="$(arr_url "${OVERSEERR_URL:-}" "${OVERSEERR_PORT:-5055}")"
+BAZARR_URL="$(arr_url "${BAZARR_URL:-}" "${BAZARR_PORT:-6767}")"
+# Plex base URL: PLEX_URL, else ${PLEX_SCHEME:-http}://${PLEX_HOST:-$CLAWARR_HOST}:${PLEX_PORT:-32400}
+if [[ -z "${PLEX_URL:-}" && -n "${PLEX_HOST:-${CLAWARR_HOST:-}}" ]]; then
+  PLEX_URL="${PLEX_SCHEME:-http}://${PLEX_HOST:-$CLAWARR_HOST}:${PLEX_PORT:-32400}"
+fi
+PLEX_URL="${PLEX_URL:-}"
+PLEX_URL="${PLEX_URL%/}"
 
 OUTPUT_FILE="${1:-clawarr-dashboard.html}"
 
-if [[ -z "$HOST" ]]; then
-  echo "❌ Error: CLAWARR_HOST not set"
+if [[ -z "$SONARR_URL$RADARR_URL$READARR_URL$TAUTULLI_URL$SABNZBD_URL$PROWLARR_URL$OVERSEERR_URL$BAZARR_URL$PLEX_URL" ]]; then
+  echo "❌ Error: set <SERVICE>_URL (e.g. SONARR_URL) or CLAWARR_HOST"
   exit 1
 fi
 
@@ -49,7 +58,6 @@ if ! command -v jq &> /dev/null; then
 fi
 
 echo "📊 Generating ClawARR Premium Dashboard (1440p optimized)..."
-echo "   Host: $HOST"
 echo "   Output: $OUTPUT_FILE"
 echo ""
 
@@ -57,28 +65,28 @@ echo ""
 api_call() {
   local app=$1
   local endpoint=$2
-  local key="" port="" api_ver=""
+  local key="" base="" api_ver=""
   local fallback='[]'
   [[ "$endpoint" == /queue* ]] && fallback='{"records":[],"totalRecords":0}'
   [[ "$app" == "bazarr" ]] && fallback='{}'
   
   case "$app" in
-    radarr)   key="$RADARR_KEY"; port="$RADARR_PORT"; api_ver="v3" ;;
-    sonarr)   key="$SONARR_KEY"; port="$SONARR_PORT"; api_ver="v3" ;;
-    readarr)  key="$READARR_KEY"; port="$READARR_PORT"; api_ver="v1" ;;
-    prowlarr) key="$PROWLARR_KEY"; port="$PROWLARR_PORT"; api_ver="v1" ;;
-    bazarr)   key="$BAZARR_KEY"; port=6767; api_ver="" ;;
+    radarr)   key="$RADARR_API_KEY"; base="$RADARR_URL"; api_ver="v3" ;;
+    sonarr)   key="$SONARR_API_KEY"; base="$SONARR_URL"; api_ver="v3" ;;
+    readarr)  key="$READARR_API_KEY"; base="$READARR_URL"; api_ver="v1" ;;
+    prowlarr) key="$PROWLARR_API_KEY"; base="$PROWLARR_URL"; api_ver="v1" ;;
+    bazarr)   key="$BAZARR_API_KEY"; base="$BAZARR_URL"; api_ver="" ;;
     *) echo "{}"; return 1 ;;
   esac
   
-  [[ -z "$key" ]] && { printf '%s\n' "$fallback"; return 0; }
+  [[ -z "$key" || -z "$base" ]] && { printf '%s\n' "$fallback"; return 0; }
   
-  local url="${CLAWARR_SCHEME}://${HOST}:${port}/api/${api_ver}${endpoint}"
+  local url="${base}/api/${api_ver}${endpoint}"
   if [[ "$app" == "bazarr" ]]; then
-    url="http://${HOST}:${port}/api${endpoint}"
+    url="${base}/api${endpoint}"
   fi
   
-  curl -fsS --connect-timeout 3 --max-time 20 -H "X-Api-Key: $key" "$url" 2>/dev/null || printf '%s\n' "$fallback"
+  curl -fsS --connect-timeout 3 --max-time 20 -H "X-Api-Key: $key" "$url" || printf '%s\n' "$fallback"
 }
 
 # Measure API response time (using curl's time_total)
@@ -103,7 +111,8 @@ measure_response_time() {
 
 measure_configured_service() {
   local key=$1 url=$2 auth_header=${3:-}
-  if [[ -z "$key" ]]; then
+  # url starts with "/" when the service has no base URL configured
+  if [[ -z "$key" || "$url" == /* ]]; then
     echo "N/A"
   else
     measure_response_time "$url" "$auth_header"
@@ -135,7 +144,7 @@ QUAL_4K=0 QUAL_1080P=0 QUAL_720P=0 QUAL_SD=0
 GENRE_DATA=""
 
 # Radarr stats
-if [[ -n "$RADARR_KEY" ]]; then
+if [[ -n "$RADARR_API_KEY" ]]; then
   echo "  • Radarr..."
   RADARR_MOVIES=$(api_call radarr "/movie")
   RADARR_QUEUE=$(api_call radarr "/queue?page=1&pageSize=1")
@@ -162,7 +171,7 @@ if [[ -n "$RADARR_KEY" ]]; then
 fi
 
 # Sonarr stats
-if [[ -n "$SONARR_KEY" ]]; then
+if [[ -n "$SONARR_API_KEY" ]]; then
   echo "  • Sonarr..."
   SONARR_SERIES=$(api_call sonarr "/series")
   SONARR_QUEUE=$(api_call sonarr "/queue?page=1&pageSize=1")
@@ -179,7 +188,7 @@ if [[ -n "$SONARR_KEY" ]]; then
 fi
 
 # Readarr author and book statistics (Readarr API v1)
-if [[ -n "$READARR_KEY" ]]; then
+if [[ -n "$READARR_API_KEY" ]]; then
   echo "  • Readarr..."
   READARR_AUTHORS=$(api_call readarr "/author")
   READARR_TOTAL=$(echo "$READARR_AUTHORS" | jq 'if type == "array" then length else 0 end')
@@ -193,9 +202,9 @@ if [[ -n "$READARR_KEY" ]]; then
 fi
 
 # SABnzbd stats
-if [[ -n "$SABNZBD_KEY" ]]; then
+if [[ -n "$SABNZBD_API_KEY" && -n "$SABNZBD_URL" ]]; then
   echo "  • SABnzbd..."
-  SABNZBD_QUEUE=$(curl -fsS --connect-timeout 3 --max-time 20 "${CLAWARR_SCHEME}://${HOST}:${SABNZBD_PORT}/api?apikey=${SABNZBD_KEY}&mode=queue&output=json&limit=50" 2>/dev/null || echo '{}')
+  SABNZBD_QUEUE=$(curl -fsS --connect-timeout 3 --max-time 20 "${SABNZBD_URL}/api?apikey=${SABNZBD_API_KEY}&mode=queue&output=json&limit=50" || echo '{}')
   SABNZBD_SPEED=$(echo "$SABNZBD_QUEUE" | jq -r '.queue.speed // "0 B/s"')
   SABNZBD_SIZE_LEFT=$(echo "$SABNZBD_QUEUE" | jq -r '.queue.sizeleft // "0 B"')
   SABNZBD_TIME_LEFT=$(echo "$SABNZBD_QUEUE" | jq -r '.queue.timeleft // "0:00:00"')
@@ -204,25 +213,25 @@ if [[ -n "$SABNZBD_KEY" ]]; then
 fi
 
 # Tautulli stats
-if [[ -n "$TAUTULLI_KEY" ]]; then
+if [[ -n "$TAUTULLI_API_KEY" && -n "$TAUTULLI_URL" ]]; then
   echo "  • Tautulli..."
-  TAUTULLI_ACTIVITY=$(curl -fsS --connect-timeout 3 --max-time 20 "${CLAWARR_SCHEME}://${HOST}:${TAUTULLI_PORT}/api/v2?apikey=${TAUTULLI_KEY}&cmd=get_activity" 2>/dev/null || echo '{}')
-  TAUTULLI_HISTORY=$(curl -fsS --connect-timeout 3 --max-time 20 "${CLAWARR_SCHEME}://${HOST}:${TAUTULLI_PORT}/api/v2?apikey=${TAUTULLI_KEY}&cmd=get_history&length=10" 2>/dev/null || echo '{}')
-  TAUTULLI_PLAYS=$(curl -fsS --connect-timeout 3 --max-time 20 "${CLAWARR_SCHEME}://${HOST}:${TAUTULLI_PORT}/api/v2?apikey=${TAUTULLI_KEY}&cmd=get_plays_by_date&time_range=30" 2>/dev/null | jq -r '.response.data.series_1_data // []' || echo '[]')
+  TAUTULLI_ACTIVITY=$(curl -fsS --connect-timeout 3 --max-time 20 "${TAUTULLI_URL}/api/v2?apikey=${TAUTULLI_API_KEY}&cmd=get_activity" || echo '{}')
+  TAUTULLI_HISTORY=$(curl -fsS --connect-timeout 3 --max-time 20 "${TAUTULLI_URL}/api/v2?apikey=${TAUTULLI_API_KEY}&cmd=get_history&length=10" || echo '{}')
+  TAUTULLI_PLAYS=$(curl -fsS --connect-timeout 3 --max-time 20 "${TAUTULLI_URL}/api/v2?apikey=${TAUTULLI_API_KEY}&cmd=get_plays_by_date&time_range=30" | jq -r '.response.data.series_1_data // []' || echo '[]')
   
   TAUTULLI_STREAMS=$(echo "$TAUTULLI_ACTIVITY" | jq -r '.response.data.stream_count // 0')
 fi
 
 # Overseerr stats
-if [[ -n "$OVERSEERR_KEY" ]]; then
+if [[ -n "$OVERSEERR_API_KEY" && -n "$OVERSEERR_URL" ]]; then
   echo "  • Overseerr..."
-  OVERSEERR_REQUESTS=$(curl -fsS --connect-timeout 3 --max-time 20 -H "X-Api-Key: $OVERSEERR_KEY" "${CLAWARR_SCHEME}://${HOST}:${OVERSEERR_PORT}/api/v1/request/count" 2>/dev/null || echo '{}')
+  OVERSEERR_REQUESTS=$(curl -fsS --connect-timeout 3 --max-time 20 -H "X-Api-Key: $OVERSEERR_API_KEY" "${OVERSEERR_URL}/api/v1/request/count" || echo '{}')
   OVERSEERR_PENDING=$(echo "$OVERSEERR_REQUESTS" | jq '.pending // 0')
   OVERSEERR_TOTAL=$(echo "$OVERSEERR_REQUESTS" | jq '.total // 0')
 fi
 
 # Prowlarr indexers
-if [[ -n "$PROWLARR_KEY" ]]; then
+if [[ -n "$PROWLARR_API_KEY" ]]; then
   echo "  • Prowlarr..."
   PROWLARR_INDEXERS=$(api_call prowlarr "/indexer")
   PROWLARR_TOTAL=$(echo "$PROWLARR_INDEXERS" | jq 'length')
@@ -230,7 +239,7 @@ if [[ -n "$PROWLARR_KEY" ]]; then
 fi
 
 # Bazarr stats
-if [[ -n "$BAZARR_KEY" ]]; then
+if [[ -n "$BAZARR_API_KEY" ]]; then
   echo "  • Bazarr..."
   BAZARR_STATUS=$(api_call bazarr "/system/status")
   BAZARR_TOTAL=$(echo "$BAZARR_STATUS" | jq -r '.data // 0')
@@ -238,15 +247,15 @@ fi
 
 # Service health checks
 echo "  • Measuring service response times..."
-SONARR_RT=$(measure_configured_service "$SONARR_KEY" "${CLAWARR_SCHEME}://${HOST}:${SONARR_PORT}/api/v3/health" "X-Api-Key: $SONARR_KEY")
-RADARR_RT=$(measure_configured_service "$RADARR_KEY" "${CLAWARR_SCHEME}://${HOST}:${RADARR_PORT}/api/v3/health" "X-Api-Key: $RADARR_KEY")
-READARR_RT=$(measure_configured_service "$READARR_KEY" "${CLAWARR_SCHEME}://${HOST}:${READARR_PORT}/api/v1/health" "X-Api-Key: $READARR_KEY")
-PLEX_RT=$(measure_configured_service "$PLEX_TOKEN" "${PLEX_SCHEME}://${PLEX_HOST}:${PLEX_PORT}/identity" "X-Plex-Token: $PLEX_TOKEN")
-TAUTULLI_RT=$(measure_configured_service "$TAUTULLI_KEY" "${CLAWARR_SCHEME}://${HOST}:${TAUTULLI_PORT}/api/v2?apikey=${TAUTULLI_KEY}&cmd=arnold")
-SABNZBD_RT=$(measure_configured_service "$SABNZBD_KEY" "${CLAWARR_SCHEME}://${HOST}:${SABNZBD_PORT}/api?mode=version&apikey=${SABNZBD_KEY}")
-OVERSEERR_RT=$(measure_configured_service "$OVERSEERR_KEY" "${CLAWARR_SCHEME}://${HOST}:${OVERSEERR_PORT}/api/v1/status" "X-Api-Key: $OVERSEERR_KEY")
-PROWLARR_RT=$(measure_configured_service "$PROWLARR_KEY" "${CLAWARR_SCHEME}://${HOST}:${PROWLARR_PORT}/api/v1/health" "X-Api-Key: $PROWLARR_KEY")
-BAZARR_RT=$(measure_response_time "http://${HOST}:6767/api/system/status" "X-Api-Key: $BAZARR_KEY")
+SONARR_RT=$(measure_configured_service "$SONARR_API_KEY" "${SONARR_URL}/api/v3/health" "X-Api-Key: $SONARR_API_KEY")
+RADARR_RT=$(measure_configured_service "$RADARR_API_KEY" "${RADARR_URL}/api/v3/health" "X-Api-Key: $RADARR_API_KEY")
+READARR_RT=$(measure_configured_service "$READARR_API_KEY" "${READARR_URL}/api/v1/health" "X-Api-Key: $READARR_API_KEY")
+PLEX_RT=$(measure_configured_service "$PLEX_TOKEN" "${PLEX_URL}/identity" "X-Plex-Token: $PLEX_TOKEN")
+TAUTULLI_RT=$(measure_configured_service "$TAUTULLI_API_KEY" "${TAUTULLI_URL}/api/v2?apikey=${TAUTULLI_API_KEY}&cmd=arnold")
+SABNZBD_RT=$(measure_configured_service "$SABNZBD_API_KEY" "${SABNZBD_URL}/api?mode=version&apikey=${SABNZBD_API_KEY}")
+OVERSEERR_RT=$(measure_configured_service "$OVERSEERR_API_KEY" "${OVERSEERR_URL}/api/v1/status" "X-Api-Key: $OVERSEERR_API_KEY")
+PROWLARR_RT=$(measure_configured_service "$PROWLARR_API_KEY" "${PROWLARR_URL}/api/v1/health" "X-Api-Key: $PROWLARR_API_KEY")
+BAZARR_RT=$(measure_configured_service "$BAZARR_API_KEY" "${BAZARR_URL}/api/system/status" "X-Api-Key: $BAZARR_API_KEY")
 
 # Calculate total storage
 TOTAL_SIZE_GB=$(echo "scale=1; $RADARR_SIZE_GB + $SONARR_SIZE_GB" | bc)

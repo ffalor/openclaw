@@ -4,17 +4,24 @@
 
 set -euo pipefail
 
-HOST="${CLAWARR_HOST:-}"
-SONARR_KEY="${SONARR_KEY:-}"
-RADARR_KEY="${RADARR_KEY:-}"
+SONARR_API_KEY="${SONARR_API_KEY:-}"
+RADARR_API_KEY="${RADARR_API_KEY:-}"
 
-if [[ -z "$HOST" ]]; then
-  echo "Error: CLAWARR_HOST not set"
+# Base URL per service: <SERVICE>_URL, else ${CLAWARR_SCHEME:-http}://$CLAWARR_HOST:<port>
+arr_url() {
+  if [[ -n "$1" ]]; then printf '%s' "${1%/}"
+  elif [[ -n "${CLAWARR_HOST:-}" ]]; then printf '%s://%s:%s' "${CLAWARR_SCHEME:-http}" "$CLAWARR_HOST" "$2"
+  fi
+}
+SONARR_URL="$(arr_url "${SONARR_URL:-}" "${SONARR_PORT:-8989}")"
+RADARR_URL="$(arr_url "${RADARR_URL:-}" "${RADARR_PORT:-7878}")"
+
+if [[ -z "$SONARR_URL" && -z "$RADARR_URL" ]]; then
+  echo "Error: set SONARR_URL/RADARR_URL (or CLAWARR_HOST)"
   echo ""
   echo "Usage:"
-  echo "  export CLAWARR_HOST=192.168.1.100"
-  echo "  export SONARR_KEY=abc123..."
-  echo "  export RADARR_KEY=def456..."
+  echo "  export SONARR_URL=http://192.168.1.100:8989"
+  echo "  export SONARR_API_KEY=abc123..."
   echo "  $0"
   exit 1
 fi
@@ -27,10 +34,10 @@ fi
 echo "📥 Download Queues"
 echo ""
 
-if [[ -n "$RADARR_KEY" ]]; then
+if [[ -n "$RADARR_API_KEY" && -n "$RADARR_URL" ]]; then
   echo "=== Radarr Queue ==="
   
-  queue=$(curl -sf -H "X-Api-Key: ${RADARR_KEY}" "http://${HOST}:7878/api/v3/queue" 2>/dev/null || echo '{"records":[]}')
+  queue=$(curl -sSf -H "X-Api-Key: ${RADARR_API_KEY}" "${RADARR_URL}/api/v3/queue" || echo '{"records":[]}')
   
   count=$(echo "$queue" | jq '.records | length')
   
@@ -42,10 +49,10 @@ if [[ -n "$RADARR_KEY" ]]; then
   echo ""
 fi
 
-if [[ -n "$SONARR_KEY" ]]; then
+if [[ -n "$SONARR_API_KEY" && -n "$SONARR_URL" ]]; then
   echo "=== Sonarr Queue ==="
   
-  queue=$(curl -sf -H "X-Api-Key: ${SONARR_KEY}" "http://${HOST}:8989/api/v3/queue" 2>/dev/null || echo '{"records":[]}')
+  queue=$(curl -sSf -H "X-Api-Key: ${SONARR_API_KEY}" "${SONARR_URL}/api/v3/queue" || echo '{"records":[]}')
   
   count=$(echo "$queue" | jq '.records | length')
   
@@ -57,6 +64,6 @@ if [[ -n "$SONARR_KEY" ]]; then
   echo ""
 fi
 
-if [[ -z "$RADARR_KEY" && -z "$SONARR_KEY" ]]; then
-  echo "No API keys configured. Set RADARR_KEY and/or SONARR_KEY."
+if [[ -z "$RADARR_API_KEY" && -z "$SONARR_API_KEY" ]]; then
+  echo "No API keys configured. Set RADARR_API_KEY and/or SONARR_API_KEY."
 fi

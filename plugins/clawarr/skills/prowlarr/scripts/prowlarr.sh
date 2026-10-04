@@ -1,21 +1,25 @@
 #!/usr/bin/env bash
 # prowlarr.sh - Prowlarr indexer management
 # Usage: prowlarr.sh <command> [args...]
-# Requires: CLAWARR_HOST, PROWLARR_KEY
+# Requires: PROWLARR_URL (or CLAWARR_HOST), PROWLARR_API_KEY
 
 set -euo pipefail
 
-HOST="${CLAWARR_HOST:-}"
-CLAWARR_SCHEME="${CLAWARR_SCHEME:-http}"
-API_KEY="${PROWLARR_KEY:-}"
-PROWLARR_PORT="${PROWLARR_PORT:-9696}"
+# Base URL per service: <SERVICE>_URL, else ${CLAWARR_SCHEME:-http}://$CLAWARR_HOST:<port>
+arr_url() {
+  if [[ -n "$1" ]]; then printf '%s' "${1%/}"
+  elif [[ -n "${CLAWARR_HOST:-}" ]]; then printf '%s://%s:%s' "${CLAWARR_SCHEME:-http}" "$CLAWARR_HOST" "$2"
+  fi
+}
+API_KEY="${PROWLARR_API_KEY:-}"
+PROWLARR_URL="$(arr_url "${PROWLARR_URL:-}" "${PROWLARR_PORT:-9696}")"
 BASE_URL=""
 
 init() {
-  if [[ -z "$HOST" ]]; then
-    echo "Error: CLAWARR_HOST not set" >&2; exit 1
+  if [[ -z "$PROWLARR_URL" ]]; then
+    echo "Error: PROWLARR_URL (or CLAWARR_HOST) not set" >&2; exit 1
   fi
-  BASE_URL="${CLAWARR_SCHEME}://${HOST}:${PROWLARR_PORT}"
+  BASE_URL="$PROWLARR_URL"
 }
 
 api() {
@@ -24,13 +28,13 @@ api() {
   shift 2
   if [[ -z "$API_KEY" ]]; then
     [[ "$method" == "GET" ]] && { printf '[]'; return 0; }
-    echo "Error: PROWLARR_KEY not set" >&2
+    echo "Error: PROWLARR_API_KEY not set" >&2
     return 1
   fi
   curl -fsS --connect-timeout 3 --max-time 20 -X "$method" \
     -H "X-Api-Key: ${API_KEY}" \
     -H "Content-Type: application/json" \
-    "${BASE_URL}/api/v1${endpoint}" "$@" 2>/dev/null || { [[ "$method" == "GET" ]] && printf '[]'; }
+    "${BASE_URL}/api/v1${endpoint}" "$@" || { [[ "$method" == "GET" ]] && printf '[]'; }
 }
 
 cmd_indexers() {
@@ -152,7 +156,7 @@ cmd_add_app() {
     readarr) impl="Readarr" ;;
     *) echo "Unknown app type: ${app_type}" >&2; exit 1 ;;
   esac
-  local prowlarr_url="${CLAWARR_SCHEME}://${HOST}:${PROWLARR_PORT}"
+  local prowlarr_url="$PROWLARR_URL"
   local payload
   payload=$(cat <<EOF
 {
@@ -234,16 +238,17 @@ Commands:
   logs [count]          Recent logs
 
 Environment:
-  CLAWARR_HOST          Host IP/hostname
-  PROWLARR_KEY          Prowlarr API key
-  PROWLARR_PORT         Prowlarr HTTP port (default: 9696)
+  PROWLARR_URL          Prowlarr base URL, e.g. https://prowlarr.example.ts.net
+  PROWLARR_API_KEY      Prowlarr API key
+  CLAWARR_HOST          Fallback host when PROWLARR_URL is unset
+  PROWLARR_PORT         Fallback port (default: 9696)
 EOF
 }
 
 init
 
 if [[ -z "$API_KEY" && "${1:-}" != "help" && "${1:-}" != "--help" && "${1:-}" != "-h" ]]; then
-  echo "⚠️  PROWLARR_KEY not set; skipping Prowlarr command"
+  echo "⚠️  PROWLARR_API_KEY not set; skipping Prowlarr command"
   exit 0
 fi
 

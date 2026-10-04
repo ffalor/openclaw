@@ -11,13 +11,18 @@
 
 set -euo pipefail
 
-HOST="${CLAWARR_HOST:-}"
-CLAWARR_SCHEME="${CLAWARR_SCHEME:-http}"
-OVERSEERR_KEY="${OVERSEERR_KEY:-}"
-OVERSEERR_PORT="${OVERSEERR_PORT:-5055}"
+OVERSEERR_API_KEY="${OVERSEERR_API_KEY:-}"
 
-if [[ -z "$HOST" ]]; then
-  echo "❌ Error: CLAWARR_HOST not set"
+# Base URL per service: <SERVICE>_URL, else ${CLAWARR_SCHEME:-http}://$CLAWARR_HOST:<port>
+arr_url() {
+  if [[ -n "$1" ]]; then printf '%s' "${1%/}"
+  elif [[ -n "${CLAWARR_HOST:-}" ]]; then printf '%s://%s:%s' "${CLAWARR_SCHEME:-http}" "$CLAWARR_HOST" "$2"
+  fi
+}
+OVERSEERR_URL="$(arr_url "${OVERSEERR_URL:-}" "${OVERSEERR_PORT:-5055}")"
+
+if [[ -z "$OVERSEERR_URL" ]]; then
+  echo "❌ Error: OVERSEERR_URL (or CLAWARR_HOST) not set"
   exit 1
 fi
 
@@ -37,18 +42,18 @@ overseerr_api() {
   local endpoint=$2
   local data="${3:-}"
   
-  if [[ -z "$OVERSEERR_KEY" ]]; then
+  if [[ -z "$OVERSEERR_API_KEY" ]]; then
     [[ "$method" == "GET" ]] && { printf '{}'; return 0; }
-    echo "❌ OVERSEERR_KEY not set" >&2
+    echo "❌ OVERSEERR_API_KEY not set" >&2
     return 1
   fi
 
-  local url="${CLAWARR_SCHEME}://${HOST}:${OVERSEERR_PORT}/api/v1${endpoint}"
+  local url="${OVERSEERR_URL}/api/v1${endpoint}"
   
   if [[ "$method" == "GET" ]]; then
-    curl -fsS --connect-timeout 3 --max-time 20 -H "X-Api-Key: $OVERSEERR_KEY" "$url" 2>/dev/null || printf '{}'
+    curl -fsS --connect-timeout 3 --max-time 20 -H "X-Api-Key: $OVERSEERR_API_KEY" "$url" || printf '{}'
   elif [[ "$method" == "POST" ]]; then
-    curl -fsS --connect-timeout 3 --max-time 20 -X POST -H "X-Api-Key: $OVERSEERR_KEY" -H "Content-Type: application/json" -d "$data" "$url" 2>/dev/null
+    curl -fsS --connect-timeout 3 --max-time 20 -X POST -H "X-Api-Key: $OVERSEERR_API_KEY" -H "Content-Type: application/json" -d "$data" "$url"
   fi
 }
 
@@ -209,8 +214,8 @@ cmd_stats() {
 # Main command router
 COMMAND="${1:-help}"
 
-if [[ -z "$OVERSEERR_KEY" && "$COMMAND" != "help" && "$COMMAND" != "--help" && "$COMMAND" != "-h" ]]; then
-  echo "⚠️  OVERSEERR_KEY not set; skipping Overseerr command"
+if [[ -z "$OVERSEERR_API_KEY" && "$COMMAND" != "help" && "$COMMAND" != "--help" && "$COMMAND" != "-h" ]]; then
+  echo "⚠️  OVERSEERR_API_KEY not set; skipping Overseerr command"
   exit 0
 fi
 

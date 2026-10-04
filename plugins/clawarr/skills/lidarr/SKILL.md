@@ -1,33 +1,34 @@
 ---
 name: lidarr
 description: Manage your Lidarr music library — search artists, inspect stats and missing albums.
-metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq", "bc"], "env": ["CLAWARR_HOST", "LIDARR_KEY"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq", "bc"], "env": []}}}
 ---
 
 # Lidarr
 
-Manage your Lidarr music library: search for artists and inspect library health. Scripts are verbatim copies from the upstream `clawarr-suite` bundle.
+Manage your Lidarr music library: search for artists and inspect library health. Scripts are adapted from the upstream `clawarr-suite` bundle (per-service URLs, OpenClaw secret-store support).
 
 ## Prerequisites
 
-| Requirement | Value |
-|-------------|-------|
-| Binaries | `bash`, `curl`, `jq` |
-| `CLAWARR_HOST` | Host or IP running Lidarr (e.g. `192.168.1.100`) |
-| `LIDARR_KEY` | Lidarr API key (Settings → General → Security → API Key) |
+Required binaries: `bash`, `curl`, `jq`, `bc`.
 
-`bc` is required: `library.sh stats lidarr` uses it unguarded for size math. A missing sibling key (`SONARR_KEY`, `RADARR_KEY`) only disables that app's section in shared scripts — Lidarr functionality is unaffected.
+| Variable | Purpose |
+|----------|---------|
+| `LIDARR_URL` | Lidarr base URL, e.g. `https://lidarr.example.ts.net` or `http://192.168.1.100:8686` |
+| `LIDARR_API_KEY` | API key (Settings → General → Security → API Key) |
+| `CLAWARR_HOST` | Optional fallback when `LIDARR_URL` is unset: `http://$CLAWARR_HOST:8686` (`CLAWARR_SCHEME`, `LIDARR_PORT` override) |
 
-```bash
-export CLAWARR_HOST=192.168.1.100
-export LIDARR_KEY=ghi789...
-```
+Configure both with the `clawarr-core` skill: `scripts/setup.sh lidarr <url>`. Over HTTPS the key is a protected OpenClaw store secret and `$LIDARR_API_KEY` holds an `oc-sent-…` sentinel; over plain HTTP it is plaintext in `~/.openclaw/.env`.
 
-Lidarr API: `http://$CLAWARR_HOST:8686/api/v1`, auth header `X-Api-Key: $LIDARR_KEY`. Full endpoint list: `references/api-endpoints.md`.
+`bc` is required: `library.sh stats lidarr` uses it unguarded for size math. A missing sibling (`SONARR_*`, `RADARR_*`) only disables that app's section in shared scripts — Lidarr functionality is unaffected.
+
+Lidarr API: `$LIDARR_URL/api/v1`, auth header `X-Api-Key: $LIDARR_API_KEY`. Full endpoint list: `references/api-endpoints.md`.
+
+**Calling the API yourself:** always use `$LIDARR_URL` with `$LIDARR_API_KEY`. Never add `--noproxy`, unset `HTTP_PROXY`/`HTTPS_PROXY`, or print the key: an `oc-sent-…` value only works through the OpenClaw egress proxy, over HTTPS, to the host it is bound to. On a 401 report it and point the user at `clawarr-core`'s `scripts/setup.sh`; do not try other variables.
 
 ## Scripts
 
-All scripts are verbatim upstream copies — do not diverge; fix upstream instead.
+Scripts are adapted from upstream `clawarr-suite`; keep shared copies across skills identical.
 
 ### `scripts/search.sh` — Find music
 

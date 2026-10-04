@@ -10,16 +10,23 @@
 
 set -euo pipefail
 
-HOST="${CLAWARR_HOST:-}"
-BAZARR_KEY="${BAZARR_KEY:-}"
+BAZARR_API_KEY="${BAZARR_API_KEY:-}"
 
-if [[ -z "$HOST" ]]; then
-  echo "❌ Error: CLAWARR_HOST not set"
+# Base URL per service: <SERVICE>_URL, else ${CLAWARR_SCHEME:-http}://$CLAWARR_HOST:<port>
+arr_url() {
+  if [[ -n "$1" ]]; then printf '%s' "${1%/}"
+  elif [[ -n "${CLAWARR_HOST:-}" ]]; then printf '%s://%s:%s' "${CLAWARR_SCHEME:-http}" "$CLAWARR_HOST" "$2"
+  fi
+}
+BAZARR_URL="$(arr_url "${BAZARR_URL:-}" "${BAZARR_PORT:-6767}")"
+
+if [[ -z "$BAZARR_URL" ]]; then
+  echo "❌ Error: BAZARR_URL (or CLAWARR_HOST) not set"
   exit 1
 fi
 
-if [[ -z "$BAZARR_KEY" ]]; then
-  echo "❌ Error: BAZARR_KEY not set"
+if [[ -z "$BAZARR_API_KEY" ]]; then
+  echo "❌ Error: BAZARR_API_KEY not set"
   exit 1
 fi
 
@@ -39,12 +46,12 @@ bazarr_api() {
   local method="${2:-GET}"
   local data="${3:-}"
   
-  local url="http://${HOST}:6767/api${endpoint}"
+  local url="${BAZARR_URL}/api${endpoint}"
   
   if [[ "$method" == "GET" ]]; then
-    curl -sf -H "X-API-Key: $BAZARR_KEY" "$url"
+    curl -sSf -H "X-API-Key: $BAZARR_API_KEY" "$url"
   elif [[ "$method" == "POST" ]]; then
-    curl -sf -X POST -H "X-API-Key: $BAZARR_KEY" -H "Content-Type: application/json" -d "$data" "$url"
+    curl -sSf -X POST -H "X-API-Key: $BAZARR_API_KEY" -H "Content-Type: application/json" -d "$data" "$url"
   fi
 }
 

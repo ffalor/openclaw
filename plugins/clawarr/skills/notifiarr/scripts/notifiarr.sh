@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
 # notifiarr.sh - Notifiarr notification management
 # Usage: notifiarr.sh <command> [args...]
-# Requires: CLAWARR_HOST (port 5454), NOTIFIARR_KEY
+# Requires: NOTIFIARR_URL (or CLAWARR_HOST, port 5454), NOTIFIARR_API_KEY
 
 set -euo pipefail
 
-HOST="${CLAWARR_HOST:-}"
-API_KEY="${NOTIFIARR_KEY:-}"
-BASE_URL=""
-PORT="${NOTIFIARR_PORT:-5454}"
+# Base URL per service: <SERVICE>_URL, else ${CLAWARR_SCHEME:-http}://$CLAWARR_HOST:<port>
+arr_url() {
+  if [[ -n "$1" ]]; then printf '%s' "${1%/}"
+  elif [[ -n "${CLAWARR_HOST:-}" ]]; then printf '%s://%s:%s' "${CLAWARR_SCHEME:-http}" "$CLAWARR_HOST" "$2"
+  fi
+}
+API_KEY="${NOTIFIARR_API_KEY:-}"
+BASE_URL="$(arr_url "${NOTIFIARR_URL:-}" "${NOTIFIARR_PORT:-5454}")"
 
 init() {
-  if [[ -z "$HOST" ]]; then
-    echo "Error: CLAWARR_HOST not set" >&2; exit 1
+  if [[ -z "$BASE_URL" ]]; then
+    echo "Error: NOTIFIARR_URL (or CLAWARR_HOST) not set" >&2; exit 1
   fi
-  BASE_URL="http://${HOST}:${PORT}"
 }
 
 api() {
@@ -22,14 +25,14 @@ api() {
   local endpoint="$2"
   shift 2
   if [[ -n "$API_KEY" ]]; then
-    curl -sf -X "$method" \
+    curl -sSf -X "$method" \
       -H "x-api-key: ${API_KEY}" \
       -H "Content-Type: application/json" \
-      "${BASE_URL}/api${endpoint}" "$@" 2>/dev/null
+      "${BASE_URL}/api${endpoint}" "$@"
   else
-    curl -sf -X "$method" \
+    curl -sSf -X "$method" \
       -H "Content-Type: application/json" \
-      "${BASE_URL}/api${endpoint}" "$@" 2>/dev/null
+      "${BASE_URL}/api${endpoint}" "$@"
   fi
 }
 
@@ -139,9 +142,8 @@ cmd_config() {
   echo "  4. Enable notification triggers"
   echo ""
   echo "  Environment variables for this script:"
-  echo "    CLAWARR_HOST=${HOST}"
-  echo "    NOTIFIARR_KEY=${API_KEY:-<not set>}"
-  echo "    NOTIFIARR_PORT=${PORT}"
+  echo "    NOTIFIARR_URL=${BASE_URL}"
+  echo "    NOTIFIARR_API_KEY=$([[ -n "$API_KEY" ]] && echo "<set>" || echo "<not set>")"
 }
 
 usage() {
@@ -157,8 +159,9 @@ Commands:
   logs                  Recent notification log
 
 Environment:
-  CLAWARR_HOST          Host IP/hostname
-  NOTIFIARR_KEY         Notifiarr API key
+  NOTIFIARR_URL         Base URL, e.g. http://192.168.1.100:5454
+  NOTIFIARR_API_KEY         Notifiarr API key
+  CLAWARR_HOST          Fallback host when NOTIFIARR_URL is unset
   NOTIFIARR_PORT        Port (default: 5454)
 
 Setup:

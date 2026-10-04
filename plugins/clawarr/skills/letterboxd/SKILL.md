@@ -15,9 +15,11 @@ This skill needs no environment variables — the CSV path works entirely withou
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `LETTERBOXD_API_KEY` | No (unset-ok) | Letterboxd API key — only useful with approved API access; all script commands work without it |
-| `TAUTULLI_KEY` | No (unset-ok) | Tautulli API key — enables `export` from Plex watch history |
-| `CLAWARR_HOST` | No (unset-ok) | LAN host of Tautulli or Radarr — source for `export` |
-| `RADARR_KEY` | No (unset-ok) | Radarr API key — alternative `export` source (movies with files) |
+| `TAUTULLI_URL` | No (unset-ok) | Tautulli base URL (e.g., `http://host:8181` or `https://...`) — enables `export` from Plex watch history |
+| `TAUTULLI_API_KEY` | No (unset-ok) | Tautulli API key — enables `export` from Plex watch history |
+| `RADARR_URL` | No (unset-ok) | Radarr base URL (e.g., `http://host:7878` or `https://...`) — alternative `export` source |
+| `RADARR_API_KEY` | No (unset-ok) | Radarr API key — alternative `export` source (movies with files) |
+| `CLAWARR_HOST` | No (unset-ok) | Optional fallback LAN host — builds `http://$CLAWARR_HOST:8181` for Tautulli or `http://$CLAWARR_HOST:7878` for Radarr when their `_URL` is unset |
 
 Optional helpers: `sed` is used for CSV field cleanup; everything else works without it.
 
@@ -39,7 +41,7 @@ scripts/letterboxd.sh export-from-trakt in.json [out.csv]  # Convert Trakt histo
 scripts/letterboxd.sh import diary.csv           # Import Letterboxd diary to local tracking
 ```
 
-`export` prefers Tautulli watch history (`TAUTULLI_KEY` + `CLAWARR_HOST`) and falls back to the Radarr library (`RADARR_KEY` + `CLAWARR_HOST`); it exits with a clear error when neither is configured. `export-from-trakt` converts movie entries from `trakt.sh sync-history export` output. `import` parses a Letterboxd diary CSV into a local JSON database at `~/.config/clawarr/letterboxd_import.json`.
+`export` prefers Tautulli watch history (`TAUTULLI_API_KEY` + `TAUTULLI_URL`, or `CLAWARR_HOST` as fallback) and falls back to the Radarr library (`RADARR_API_KEY` + `RADARR_URL`, or `CLAWARR_HOST` as fallback); it exits with a clear error when neither is configured. `export-from-trakt` converts movie entries from `trakt.sh sync-history export` output. `import` parses a Letterboxd diary CSV into a local JSON database at `~/.config/clawarr/letterboxd_import.json`.
 
 ## Public Profiles & Diaries
 

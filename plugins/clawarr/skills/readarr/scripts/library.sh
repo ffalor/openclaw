@@ -18,19 +18,24 @@
 
 set -euo pipefail
 
-HOST="${CLAWARR_HOST:-}"
-CLAWARR_SCHEME="${CLAWARR_SCHEME:-http}"
-SONARR_KEY="${SONARR_KEY:-}"
-RADARR_KEY="${RADARR_KEY:-}"
-READARR_KEY="${READARR_KEY:-}"
-LIDARR_KEY="${LIDARR_KEY:-}"
-SONARR_PORT="${SONARR_PORT:-8989}"
-RADARR_PORT="${RADARR_PORT:-7878}"
-READARR_PORT="${READARR_PORT:-8787}"
+SONARR_API_KEY="${SONARR_API_KEY:-}"
+RADARR_API_KEY="${RADARR_API_KEY:-}"
+READARR_API_KEY="${READARR_API_KEY:-}"
+LIDARR_API_KEY="${LIDARR_API_KEY:-}"
 
-if [[ -z "$HOST" ]]; then
-  echo "❌ Error: CLAWARR_HOST not set"
-  echo "Usage: export CLAWARR_HOST=192.168.1.100"
+# Base URL per service: <SERVICE>_URL, else ${CLAWARR_SCHEME:-http}://$CLAWARR_HOST:<port>
+arr_url() {
+  if [[ -n "$1" ]]; then printf '%s' "${1%/}"
+  elif [[ -n "${CLAWARR_HOST:-}" ]]; then printf '%s://%s:%s' "${CLAWARR_SCHEME:-http}" "$CLAWARR_HOST" "$2"
+  fi
+}
+SONARR_URL="$(arr_url "${SONARR_URL:-}" "${SONARR_PORT:-8989}")"
+RADARR_URL="$(arr_url "${RADARR_URL:-}" "${RADARR_PORT:-7878}")"
+READARR_URL="$(arr_url "${READARR_URL:-}" "${READARR_PORT:-8787}")"
+LIDARR_URL="$(arr_url "${LIDARR_URL:-}" "${LIDARR_PORT:-8686}")"
+
+if [[ -z "$SONARR_URL$RADARR_URL$READARR_URL$LIDARR_URL" ]]; then
+  echo "❌ Error: set <SERVICE>_URL (e.g. SONARR_URL) or CLAWARR_HOST"
   exit 1
 fi
 
@@ -49,31 +54,29 @@ api_call() {
   local app=$1
   local endpoint=$2
   local key=""
-  local port=""
+  local base=""
   local api_ver=""
-  local scheme="$CLAWARR_SCHEME"
   
   case "$app" in
     radarr)
-      key="$RADARR_KEY"
-      port="$RADARR_PORT"
+      key="$RADARR_API_KEY"
+      base="$RADARR_URL"
       api_ver="v3"
       ;;
     sonarr)
-      key="$SONARR_KEY"
-      port="$SONARR_PORT"
+      key="$SONARR_API_KEY"
+      base="$SONARR_URL"
       api_ver="v3"
       ;;
     readarr)
-      key="$READARR_KEY"
-      port="$READARR_PORT"
+      key="$READARR_API_KEY"
+      base="$READARR_URL"
       api_ver="v1"
       ;;
     lidarr)
-      key="$LIDARR_KEY"
-      port=8686
+      key="$LIDARR_API_KEY"
+      base="$LIDARR_URL"
       api_ver="v1"
-      scheme="http"
       ;;
     *)
       echo "❌ Unknown app: $app"
@@ -81,12 +84,12 @@ api_call() {
       ;;
   esac
   
-  if [[ -z "$key" ]]; then
+  if [[ -z "$key" || -z "$base" ]]; then
     printf '[]'
     return 0
   fi
 
-  curl -fsS --connect-timeout 3 --max-time 20 -H "X-Api-Key: $key" "${scheme}://${HOST}:${port}/api/${api_ver}${endpoint}" 2>/dev/null || printf '[]'
+  curl -fsS --connect-timeout 3 --max-time 20 -H "X-Api-Key: $key" "${base}/api/${api_ver}${endpoint}" || printf '[]'
 }
 
 bytes_to_gb() {
@@ -100,7 +103,7 @@ bytes_to_gb() {
 cmd_stats() {
   local app="${1:-all}"
   
-  if [[ "$app" == "all" || "$app" == "radarr" ]] && [[ -n "$RADARR_KEY" ]]; then
+  if [[ "$app" == "all" || "$app" == "radarr" ]] && [[ -n "$RADARR_API_KEY" ]]; then
     echo "📊 Radarr Library Statistics"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
@@ -128,7 +131,7 @@ cmd_stats() {
     echo ""
   fi
   
-  if [[ "$app" == "all" || "$app" == "sonarr" ]] && [[ -n "$SONARR_KEY" ]]; then
+  if [[ "$app" == "all" || "$app" == "sonarr" ]] && [[ -n "$SONARR_API_KEY" ]]; then
     echo "📊 Sonarr Library Statistics"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
@@ -159,7 +162,7 @@ cmd_stats() {
     echo ""
   fi
 
-  if [[ "$app" == "all" || "$app" == "readarr" ]] && [[ -n "$READARR_KEY" ]]; then
+  if [[ "$app" == "all" || "$app" == "readarr" ]] && [[ -n "$READARR_API_KEY" ]]; then
     echo "📚 Readarr Library Statistics"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
@@ -183,7 +186,7 @@ cmd_stats() {
     echo ""
   fi
   
-  if [[ "$app" == "all" || "$app" == "lidarr" ]] && [[ -n "$LIDARR_KEY" ]]; then
+  if [[ "$app" == "all" || "$app" == "lidarr" ]] && [[ -n "$LIDARR_API_KEY" ]]; then
     echo "📊 Lidarr Library Statistics"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
@@ -246,7 +249,7 @@ cmd_quality() {
 cmd_missing() {
   local app="${1:-all}"
   
-  if [[ "$app" == "all" || "$app" == "radarr" ]] && [[ -n "$RADARR_KEY" ]]; then
+  if [[ "$app" == "all" || "$app" == "radarr" ]] && [[ -n "$RADARR_API_KEY" ]]; then
     echo "📋 Missing Movies (Radarr)"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
@@ -263,7 +266,7 @@ cmd_missing() {
     echo ""
   fi
   
-  if [[ "$app" == "all" || "$app" == "sonarr" ]] && [[ -n "$SONARR_KEY" ]]; then
+  if [[ "$app" == "all" || "$app" == "sonarr" ]] && [[ -n "$SONARR_API_KEY" ]]; then
     echo "📋 Missing Episodes (Sonarr)"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
@@ -414,7 +417,7 @@ cmd_disk() {
   echo "💾 Disk Usage by Root Folder"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
-  if [[ "$app" == "all" || "$app" == "radarr" ]] && [[ -n "$RADARR_KEY" ]]; then
+  if [[ "$app" == "all" || "$app" == "radarr" ]] && [[ -n "$RADARR_API_KEY" ]]; then
     echo "Radarr:"
     local folders
     folders=$(api_call radarr "/rootfolder")
@@ -422,7 +425,7 @@ cmd_disk() {
     echo ""
   fi
   
-  if [[ "$app" == "all" || "$app" == "sonarr" ]] && [[ -n "$SONARR_KEY" ]]; then
+  if [[ "$app" == "all" || "$app" == "sonarr" ]] && [[ -n "$SONARR_API_KEY" ]]; then
     echo "Sonarr:"
     local folders
     folders=$(api_call sonarr "/rootfolder")
@@ -430,7 +433,7 @@ cmd_disk() {
     echo ""
   fi
   
-  if [[ "$app" == "all" || "$app" == "lidarr" ]] && [[ -n "$LIDARR_KEY" ]]; then
+  if [[ "$app" == "all" || "$app" == "lidarr" ]] && [[ -n "$LIDARR_API_KEY" ]]; then
     echo "Lidarr:"
     local folders
     folders=$(api_call lidarr "/rootfolder")

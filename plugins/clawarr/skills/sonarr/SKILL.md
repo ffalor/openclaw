@@ -1,33 +1,34 @@
 ---
 name: sonarr
 description: Manage your Sonarr TV library — search and add series, monitor queue, inspect stats and missing episodes.
-metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": ["CLAWARR_HOST", "SONARR_KEY"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["bash", "curl", "jq"], "env": []}}}
 ---
 
 # Sonarr
 
-Manage your Sonarr TV-series library: search and add shows, track the download queue, and inspect library health. Scripts are verbatim copies from the upstream `clawarr-suite` bundle.
+Manage your Sonarr TV-series library: search and add shows, track the download queue, and inspect library health. Scripts are adapted from the upstream `clawarr-suite` bundle (per-service URLs, OpenClaw secret-store support).
 
 ## Prerequisites
 
-| Requirement | Value |
-|-------------|-------|
-| Binaries | `bash`, `curl`, `jq` |
-| `CLAWARR_HOST` | Host or IP running Sonarr (e.g. `192.168.1.100`) |
-| `SONARR_KEY` | Sonarr API key (Settings → General → Security → API Key) |
+Required binaries: `bash`, `curl`, `jq`.
 
-Optional text/math helpers (`sed`, `bc`) are used by `library.sh` where available. A missing sibling key (`RADARR_KEY`, `LIDARR_KEY`) only disables that app's section in shared scripts — Sonarr functionality is unaffected.
+| Variable | Purpose |
+|----------|---------|
+| `SONARR_URL` | Sonarr base URL, e.g. `https://sonarr.example.ts.net` or `http://192.168.1.100:8989` |
+| `SONARR_API_KEY` | API key (Settings → General → Security → API Key) |
+| `CLAWARR_HOST` | Optional fallback when `SONARR_URL` is unset: `http://$CLAWARR_HOST:8989` (`CLAWARR_SCHEME`, `SONARR_PORT` override) |
 
-```bash
-export CLAWARR_HOST=192.168.1.100
-export SONARR_KEY=abc123...
-```
+Configure both with the `clawarr-core` skill: `scripts/setup.sh sonarr <url>`. Over HTTPS the key is a protected OpenClaw store secret and `$SONARR_API_KEY` holds an `oc-sent-…` sentinel; over plain HTTP it is plaintext in `~/.openclaw/.env`.
 
-Sonarr API: `http://$CLAWARR_HOST:8989/api/v3`, auth header `X-Api-Key: $SONARR_KEY`. Full endpoint list: `references/api-endpoints.md`.
+Optional text/math helpers (`sed`, `bc`) are used by `library.sh` where available. A missing sibling (`RADARR_*`, `LIDARR_*`) only disables that app's section in shared scripts — Sonarr functionality is unaffected.
+
+Sonarr API: `$SONARR_URL/api/v3`, auth header `X-Api-Key: $SONARR_API_KEY`. Full endpoint list: `references/api-endpoints.md`.
+
+**Calling the API yourself:** always use `$SONARR_URL` with `$SONARR_API_KEY`. Never add `--noproxy`, unset `HTTP_PROXY`/`HTTPS_PROXY`, or print the key: an `oc-sent-…` value only works through the OpenClaw egress proxy, over HTTPS, to the host it is bound to. On a 401 report it and point the user at `clawarr-core`'s `scripts/setup.sh`; do not try other variables.
 
 ## Scripts
 
-All scripts are verbatim upstream copies — do not diverge; fix upstream instead.
+Scripts are adapted from upstream `clawarr-suite`; keep shared copies across skills identical.
 
 ### `scripts/search.sh` — Find series
 
@@ -80,7 +81,7 @@ scripts/library.sh disk sonarr         # disk usage by root folder
 scripts/queue.sh
 ```
 
-Prints the Sonarr (and Radarr, when configured) queue with status, remaining size, and ETA. With only `SONARR_KEY` set, just the Sonarr section renders.
+Prints the Sonarr (and Radarr, when configured) queue with status, remaining size, and ETA. With only `SONARR_API_KEY` set, just the Sonarr section renders.
 
 ## Troubleshooting
 
