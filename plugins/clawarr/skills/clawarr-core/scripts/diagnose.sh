@@ -66,7 +66,7 @@ if [[ "$HAS_DOCKER" == true ]]; then
   echo ""
   
   # Check common container names
-  for container in radarr sonarr lidarr readarr prowlarr bazarr overseerr plex; do
+  for container in radarr sonarr lidarr readarr prowlarr bazarr seerr plex; do
     if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${container}\$"; then
       UPTIME=$(docker inspect -f '{{.State.StartedAt}}' "$container" 2>/dev/null || echo "")
       if [[ -n "$UPTIME" ]]; then

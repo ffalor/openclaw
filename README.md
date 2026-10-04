@@ -22,7 +22,7 @@ under `plugins/` is a separately installable bundle, listed in
 | `lidarr` | `scripts/setup.sh lidarr <url>` | Music library analytics and search |
 | `readarr` | `scripts/setup.sh readarr <url>` | Book library API workflows (authors, books, queue) |
 | `prowlarr` | `scripts/setup.sh prowlarr <url>` | Indexer management, testing, cross-app sync |
-| `overseerr` | `scripts/setup.sh overseerr <url>` | Request listing, approval, stats |
+| `seerr` | `scripts/setup.sh seerr <url>` | Request listing, approval, stats |
 | `plex` | `scripts/setup.sh plex <url>` | Plex library stats and recently-added |
 | `tautulli` | `scripts/setup.sh tautulli <url>` | Viewing analytics: streams, history, users, peak hours |
 | `sabnzbd` | `scripts/setup.sh sabnzbd <url>` | Download queue, speed, pause/resume, history |

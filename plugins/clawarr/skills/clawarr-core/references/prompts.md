@@ -73,7 +73,7 @@ Natural-language prompts that users can give their AI agent to leverage the Claw
 
 ## Request Management
 
-**"Approve all pending Overseerr requests"**
+**"Approve all pending Seerr requests"**
 - Use: `scripts/requests.sh list pending` then loop `scripts/requests.sh approve <id>`
 
 **"Show pending media requests"**
@@ -180,7 +180,7 @@ Natural-language prompts that users can give their AI agent to leverage the Claw
 2. Manually update quality profiles in Radarr UI or via API
 3. `scripts/manage.sh wanted radarr` — trigger searches
 
-**"Add all items from Overseerr pending queue to Radarr/Sonarr"**
+**"Add all items from Seerr pending queue to Radarr/Sonarr"**
 1. `scripts/requests.sh list pending`
 2. Loop through and approve: `scripts/requests.sh approve <id>`
 

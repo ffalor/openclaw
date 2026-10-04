@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# requests.sh - Overseerr request management
+# requests.sh - Seerr request management
 # Usage: requests.sh <command> [options]
 #
 # Commands:
@@ -11,7 +11,7 @@
 
 set -euo pipefail
 
-OVERSEERR_API_KEY="${OVERSEERR_API_KEY:-}"
+SEERR_API_KEY="${SEERR_API_KEY:-}"
 
 # Base URL per service: <SERVICE>_URL, else ${CLAWARR_SCHEME:-http}://$CLAWARR_HOST:<port>
 arr_url() {
@@ -19,10 +19,10 @@ arr_url() {
   elif [[ -n "${CLAWARR_HOST:-}" ]]; then printf '%s://%s:%s' "${CLAWARR_SCHEME:-http}" "$CLAWARR_HOST" "$2"
   fi
 }
-OVERSEERR_URL="$(arr_url "${OVERSEERR_URL:-}" "${OVERSEERR_PORT:-5055}")"
+SEERR_URL="$(arr_url "${SEERR_URL:-}" "${SEERR_PORT:-5055}")"
 
-if [[ -z "$OVERSEERR_URL" ]]; then
-  echo "❌ Error: OVERSEERR_URL (or CLAWARR_HOST) not set"
+if [[ -z "$SEERR_URL" ]]; then
+  echo "❌ Error: SEERR_URL (or CLAWARR_HOST) not set"
   exit 1
 fi
 
@@ -36,24 +36,24 @@ show_help() {
   exit 0
 }
 
-# Helper: call Overseerr API
-overseerr_api() {
+# Helper: call Seerr API
+seerr_api() {
   local method=$1
   local endpoint=$2
   local data="${3:-}"
   
-  if [[ -z "$OVERSEERR_API_KEY" ]]; then
+  if [[ -z "$SEERR_API_KEY" ]]; then
     [[ "$method" == "GET" ]] && { printf '{}'; return 0; }
-    echo "❌ OVERSEERR_API_KEY not set" >&2
+    echo "❌ SEERR_API_KEY not set" >&2
     return 1
   fi
 
-  local url="${OVERSEERR_URL}/api/v1${endpoint}"
+  local url="${SEERR_URL}/api/v1${endpoint}"
   
   if [[ "$method" == "GET" ]]; then
-    curl -fsS --connect-timeout 3 --max-time 20 -H "X-Api-Key: $OVERSEERR_API_KEY" "$url" || printf '{}'
+    curl -fsS --connect-timeout 3 --max-time 20 -H "X-Api-Key: $SEERR_API_KEY" "$url" || printf '{}'
   elif [[ "$method" == "POST" ]]; then
-    curl -fsS --connect-timeout 3 --max-time 20 -X POST -H "X-Api-Key: $OVERSEERR_API_KEY" -H "Content-Type: application/json" -d "$data" "$url"
+    curl -fsS --connect-timeout 3 --max-time 20 -X POST -H "X-Api-Key: $SEERR_API_KEY" -H "Content-Type: application/json" -d "$data" "$url"
   fi
 }
 
@@ -77,7 +77,7 @@ cmd_list() {
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
   local requests
-  requests=$(overseerr_api GET "/request?take=50&skip=0${filter}")
+  requests=$(seerr_api GET "/request?take=50&skip=0${filter}")
   
   if [[ $(echo "$requests" | jq '.results | length') -eq 0 ]]; then
     echo "  No requests found"
@@ -109,7 +109,7 @@ cmd_approve() {
   
   echo "✅ Approving request ID: $id"
   
-  if overseerr_api POST "/request/$id/approve" '{}' >/dev/null 2>&1; then
+  if seerr_api POST "/request/$id/approve" '{}' >/dev/null 2>&1; then
     echo "✅ Request approved successfully"
   else
     echo "❌ Failed to approve request"
@@ -133,7 +133,7 @@ cmd_deny() {
   local data
   data=$(jq -n --arg reason "$reason" '{message: $reason}')
   
-  if overseerr_api POST "/request/$id/decline" "$data" >/dev/null 2>&1; then
+  if seerr_api POST "/request/$id/decline" "$data" >/dev/null 2>&1; then
     echo "✅ Request denied successfully"
   else
     echo "❌ Failed to deny request"
@@ -154,7 +154,7 @@ cmd_info() {
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
   local request
-  request=$(overseerr_api GET "/request/$id")
+  request=$(seerr_api GET "/request/$id")
   
   echo "$request" | jq -r '
     "Title: \(.media.title // .media.name // "Unknown")",
@@ -182,8 +182,8 @@ cmd_stats() {
   
   # Get all requests
   local counts recent_requests
-  counts=$(overseerr_api GET "/request/count")
-  recent_requests=$(overseerr_api GET "/request?take=50&skip=0")
+  counts=$(seerr_api GET "/request/count")
+  recent_requests=$(seerr_api GET "/request?take=50&skip=0")
   local total pending processing available movies tv
   total=$(echo "$counts" | jq '.total // 0')
   pending=$(echo "$counts" | jq '.pending // 0')
@@ -214,8 +214,8 @@ cmd_stats() {
 # Main command router
 COMMAND="${1:-help}"
 
-if [[ -z "$OVERSEERR_API_KEY" && "$COMMAND" != "help" && "$COMMAND" != "--help" && "$COMMAND" != "-h" ]]; then
-  echo "⚠️  OVERSEERR_API_KEY not set; skipping Overseerr command"
+if [[ -z "$SEERR_API_KEY" && "$COMMAND" != "help" && "$COMMAND" != "--help" && "$COMMAND" != "-h" ]]; then
+  echo "⚠️  SEERR_API_KEY not set; skipping Seerr command"
   exit 0
 fi
 

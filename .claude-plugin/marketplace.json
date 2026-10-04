@@ -10,8 +10,8 @@
     {
       "name": "clawarr",
       "source": "./plugins/clawarr",
-      "description": "ClawARR media-stack skills (core + one skill per service: Sonarr, Radarr, Lidarr, Readarr, Prowlarr, Plex, Tautulli, SABnzbd, Overseerr, Bazarr, Trakt, and more).",
-      "version": "3.0.0",
+      "description": "ClawARR media-stack skills (core + one skill per service: Sonarr, Radarr, Lidarr, Readarr, Prowlarr, Plex, Tautulli, SABnzbd, Seerr, Bazarr, Trakt, and more).",
+      "version": "4.0.0",
       "license": "MIT"
     }
   ]

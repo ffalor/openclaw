@@ -16,7 +16,7 @@ Header: X-Api-Key: <api-key>
 Header: X-Plex-Token: <token>
 ```
 
-**Tautulli/Overseerr:**
+**Tautulli/Seerr:**
 ```
 Query param: ?apikey=<key>
 Or Header: X-Api-Key: <key>

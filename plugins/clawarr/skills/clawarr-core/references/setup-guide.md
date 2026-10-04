@@ -44,7 +44,7 @@ mkdir -p media/{movies,tv,music,books}
 mkdir -p downloads/{movies,tv,music,books}
 
 # Appdata for configs
-mkdir -p appdata/{radarr,sonarr,lidarr,readarr,prowlarr,bazarr,overseerr,plex,tautulli,qbittorrent}
+mkdir -p appdata/{radarr,sonarr,lidarr,readarr,prowlarr,bazarr,seerr,plex,tautulli,qbittorrent}
 ```
 
 ### docker-compose.yml
@@ -126,12 +126,13 @@ services:
     ports:
       - "6767:6767"
 
-  overseerr:
+  seerr:
     <<: *common
-    image: lscr.io/linuxserver/overseerr:latest
-    container_name: overseerr
+    image: ghcr.io/seerr-team/seerr:latest
+    container_name: seerr
+    init: true
     volumes:
-      - /mnt/storage/appdata/overseerr:/config
+      - /mnt/storage/appdata/seerr:/app/config
     ports:
       - "5055:5055"
 
@@ -205,7 +206,7 @@ Unraid users can use Community Applications (CA) for easy installation.
    - **Readarr** (by linuxserver)
    - **Prowlarr** (by linuxserver)
    - **Bazarr** (by linuxserver)
-   - **Overseerr** (by linuxserver)
+   - **Seerr** (by linuxserver)
    - **qBittorrent** (by binhex)
    - **Plex** (official)
    - **Tautulli** (by linuxserver)
@@ -262,7 +263,7 @@ File Station → Create structure:
   ├── sonarr/
   ├── lidarr/
   ├── prowlarr/
-  ├── overseerr/
+  ├── seerr/
   └── ...
 
 /volume1/media/
@@ -519,9 +520,9 @@ Get Plex token for API:
 3. URL contains: `X-Plex-Token=xxxxxxxxxxxx`
 4. Save this token
 
-### 7. Configure Overseerr
+### 7. Configure Seerr
 
-1. Open Overseerr (http://host:5055)
+1. Open Seerr (http://host:5055)
 2. Sign in with Plex
 3. Settings → Plex:
    - Server: Select your Plex server
@@ -546,7 +547,7 @@ Run setup once per service with the URL the OpenClaw Gateway should use:
 ```bash
 scripts/setup.sh radarr http://192.168.1.100:7878
 scripts/setup.sh sonarr https://sonarr.example.ts.net
-scripts/setup.sh overseerr http://192.168.1.100:5055
+scripts/setup.sh seerr http://192.168.1.100:5055
 ```
 
 Then restart the Gateway and, in a new agent run:
@@ -651,7 +652,7 @@ See [Common Issues](common-issues.md) for detailed troubleshooting.
 
 After setup:
 1. ✅ Run `scripts/diagnose.sh` to verify everything
-2. ✅ Test adding content via Overseerr
+2. ✅ Test adding content via Seerr
 3. ✅ Monitor first download to ensure import works
 4. ✅ Set up Bazarr for subtitles
 5. ✅ Configure Tautulli for Plex stats

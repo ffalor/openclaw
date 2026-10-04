@@ -676,7 +676,7 @@ tail -f /var/log/retraktarr.log
 ### Related Tools
 - **Plex-Trakt-Sync:** Sync Plex watch history to Trakt
 - **Tautulli:** Plex monitoring and notifications
-- **Overseerr:** Request management
+- **Seerr:** Request management
 
 ## Summary
 

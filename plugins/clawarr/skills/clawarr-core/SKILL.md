@@ -15,7 +15,7 @@ Each service has a base URL and a key:
 | Variable | Purpose |
 |----------|---------|
 | `<SERVICE>_URL` | Base URL, e.g. `SONARR_URL=https://sonarr.example.ts.net` or `http://192.168.1.100:8989` |
-| `<SERVICE>_API_KEY` | API key (`SONARR_API_KEY`, `RADARR_API_KEY`, `LIDARR_API_KEY`, `READARR_API_KEY`, `PROWLARR_API_KEY`, `BAZARR_API_KEY`, `OVERSEERR_API_KEY`, `TAUTULLI_API_KEY`, `SABNZBD_API_KEY`, `NOTIFIARR_API_KEY`) |
+| `<SERVICE>_API_KEY` | API key (`SONARR_API_KEY`, `RADARR_API_KEY`, `LIDARR_API_KEY`, `READARR_API_KEY`, `PROWLARR_API_KEY`, `BAZARR_API_KEY`, `SEERR_API_KEY`, `TAUTULLI_API_KEY`, `SABNZBD_API_KEY`, `NOTIFIARR_API_KEY`) |
 | `PLEX_URL` / `PLEX_TOKEN` | Plex base URL and token |
 | `CLAWARR_HOST` | Optional fallback for any service without a `<SERVICE>_URL`: `${CLAWARR_SCHEME:-http}://$CLAWARR_HOST:<port>`, with `<SERVICE>_PORT` overriding the standard port |
 
@@ -79,7 +79,7 @@ Creates a dark-themed dashboard with system health, download activity, library s
 - Readarr: 8787
 - Prowlarr: 9696
 - Bazarr: 6767
-- Overseerr: 5055
+- Seerr: 5055
 - Plex: 32400
 - Tautulli: 8181
 - SABnzbd: 8081
@@ -154,7 +154,7 @@ Common causes for stuck imports: stale Docker mounts (restart containers), downl
 - **`references/dashboard-templates.md`** — HTML/CSS templates for dashboards.
 - **`references/prompts.md`** — Suggested natural-language prompts.
 
-`references/prompts.md` and `references/setup-guide.md` are verbatim upstream and mention service scripts (`library.sh`, `analytics.sh`, `downloads.sh`, `requests.sh`, `manage.sh`, `queue.sh`, `search.sh`, `subtitles.sh`, `indexers.sh`) that are **not** in this skill — they live in the matching service skill (sonarr, radarr, plex/tautulli, sabnzbd, overseerr, bazarr, prowlarr). This skill only ships `setup.sh`, `discover.sh`, `status.sh`, `diagnose.sh`, and `dashboard.sh`.
+`references/prompts.md` and `references/setup-guide.md` are verbatim upstream and mention service scripts (`library.sh`, `analytics.sh`, `downloads.sh`, `requests.sh`, `manage.sh`, `queue.sh`, `search.sh`, `subtitles.sh`, `indexers.sh`) that are **not** in this skill — they live in the matching service skill (sonarr, radarr, plex/tautulli, sabnzbd, seerr, bazarr, prowlarr). This skill only ships `setup.sh`, `discover.sh`, `status.sh`, `diagnose.sh`, and `dashboard.sh`.
 
 ## Security & compatibility notes
 

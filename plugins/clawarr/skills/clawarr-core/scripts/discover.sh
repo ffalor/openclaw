@@ -25,7 +25,7 @@ SERVICES=(
   "Readarr:8787:/api/v1/system/status"
   "Prowlarr:9696:/api/v1/system/status"
   "Bazarr:6767:/api/system/status"
-  "Overseerr:5055:/api/v1/status"
+  "Seerr:5055:/api/v1/status"
   "Plex:32400:/identity"
   "Tautulli:8181:/api/v2?cmd=get_tautulli_info"
 )

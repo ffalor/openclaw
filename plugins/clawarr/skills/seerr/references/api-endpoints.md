@@ -1,4 +1,4 @@
-# Overseerr API Endpoints
+# Seerr API Endpoints
 
 Complete API reference for all *arr services. All endpoints use JSON for request/response bodies.
 
@@ -16,13 +16,13 @@ Header: X-Api-Key: <api-key>
 Header: X-Plex-Token: <token>
 ```
 
-**Tautulli/Overseerr:**
+**Tautulli/Seerr:**
 ```
 Query param: ?apikey=<key>
 Or Header: X-Api-Key: <key>
 ```
 
-## Overseerr (API v1)
+## Seerr (API v1)
 
 Base URL: `http://host:5055/api/v1`
 
@@ -52,7 +52,7 @@ Base URL: `http://host:5055/api/v1`
 - `GET /user/me` - Current user
 
 
-## Advanced Overseerr Endpoints
+## Advanced Seerr Endpoints
 
 ### Issue Tracking
 - `GET /issue` - All issues

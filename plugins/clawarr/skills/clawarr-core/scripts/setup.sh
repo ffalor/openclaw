@@ -30,7 +30,7 @@ usage() {
 }
 
 list_services() {
-  echo "Services: sonarr radarr lidarr readarr prowlarr bazarr overseerr tautulli sabnzbd notifiarr plex"
+  echo "Services: sonarr radarr lidarr readarr prowlarr bazarr seerr tautulli sabnzbd notifiarr plex"
 }
 
 # svc_info <service> -> sets PREFIX KEY_VAR LABEL AUTODETECT CHECK AUTH
@@ -43,7 +43,7 @@ svc_info() {
     readarr)   PREFIX=READARR   LABEL=Readarr   AUTODETECT=yes CHECK=/api/v1/system/status ;;
     prowlarr)  PREFIX=PROWLARR  LABEL=Prowlarr  AUTODETECT=yes CHECK=/api/v1/system/status ;;
     bazarr)    PREFIX=BAZARR    LABEL=Bazarr    CHECK=/api/system/status ;;
-    overseerr) PREFIX=OVERSEERR LABEL=Overseerr CHECK=/api/v1/request/count ;;
+    seerr) PREFIX=SEERR LABEL=Seerr CHECK=/api/v1/request/count ;;
     tautulli)  PREFIX=TAUTULLI  LABEL=Tautulli  CHECK="/api/v2?cmd=get_tautulli_info" AUTH=query ;;
     sabnzbd)   PREFIX=SABNZBD   LABEL=SABnzbd   CHECK="/api?mode=queue&output=json&limit=1" AUTH=query ;;
     notifiarr) PREFIX=NOTIFIARR LABEL=Notifiarr CHECK="" ;;

@@ -20,7 +20,7 @@ READARR_API_KEY="${READARR_API_KEY:-}"
 TAUTULLI_API_KEY="${TAUTULLI_API_KEY:-}"
 SABNZBD_API_KEY="${SABNZBD_API_KEY:-}"
 PROWLARR_API_KEY="${PROWLARR_API_KEY:-}"
-OVERSEERR_API_KEY="${OVERSEERR_API_KEY:-}"
+SEERR_API_KEY="${SEERR_API_KEY:-}"
 BAZARR_API_KEY="${BAZARR_API_KEY:-}"
 PLEX_TOKEN="${PLEX_TOKEN:-}"
 
@@ -36,7 +36,7 @@ READARR_URL="$(arr_url "${READARR_URL:-}" "${READARR_PORT:-8787}")"
 TAUTULLI_URL="$(arr_url "${TAUTULLI_URL:-}" "${TAUTULLI_PORT:-8181}")"
 SABNZBD_URL="$(arr_url "${SABNZBD_URL:-}" "${SABNZBD_PORT:-8081}")"
 PROWLARR_URL="$(arr_url "${PROWLARR_URL:-}" "${PROWLARR_PORT:-9696}")"
-OVERSEERR_URL="$(arr_url "${OVERSEERR_URL:-}" "${OVERSEERR_PORT:-5055}")"
+SEERR_URL="$(arr_url "${SEERR_URL:-}" "${SEERR_PORT:-5055}")"
 BAZARR_URL="$(arr_url "${BAZARR_URL:-}" "${BAZARR_PORT:-6767}")"
 # Plex base URL: PLEX_URL, else ${PLEX_SCHEME:-http}://${PLEX_HOST:-$CLAWARR_HOST}:${PLEX_PORT:-32400}
 if [[ -z "${PLEX_URL:-}" && -n "${PLEX_HOST:-${CLAWARR_HOST:-}}" ]]; then
@@ -47,7 +47,7 @@ PLEX_URL="${PLEX_URL%/}"
 
 OUTPUT_FILE="${1:-clawarr-dashboard.html}"
 
-if [[ -z "$SONARR_URL$RADARR_URL$READARR_URL$TAUTULLI_URL$SABNZBD_URL$PROWLARR_URL$OVERSEERR_URL$BAZARR_URL$PLEX_URL" ]]; then
+if [[ -z "$SONARR_URL$RADARR_URL$READARR_URL$TAUTULLI_URL$SABNZBD_URL$PROWLARR_URL$SEERR_URL$BAZARR_URL$PLEX_URL" ]]; then
   echo "❌ Error: set <SERVICE>_URL (e.g. SONARR_URL) or CLAWARR_HOST"
   exit 1
 fi
@@ -128,7 +128,7 @@ SONARR_TOTAL=0 SONARR_MONITORED=0 SONARR_SIZE=0 SONARR_SIZE_GB=0 SONARR_DOWNLOAD
 READARR_TOTAL=0 READARR_MONITORED=0 READARR_BOOKS=0 READARR_BOOK_FILES=0 READARR_MISSING=0 READARR_SIZE=0 READARR_SIZE_GB=0
 SABNZBD_SPEED="0 B/s" SABNZBD_SIZE_LEFT="0 B" SABNZBD_TIME_LEFT="0:00:00" SABNZBD_PAUSED="false" SABNZBD_ITEMS=0
 TAUTULLI_STREAMS=0
-OVERSEERR_PENDING=0 OVERSEERR_TOTAL=0
+SEERR_PENDING=0 SEERR_TOTAL=0
 PROWLARR_TOTAL=0 PROWLARR_ENABLED=0
 BAZARR_TOTAL=0
 
@@ -222,12 +222,12 @@ if [[ -n "$TAUTULLI_API_KEY" && -n "$TAUTULLI_URL" ]]; then
   TAUTULLI_STREAMS=$(echo "$TAUTULLI_ACTIVITY" | jq -r '.response.data.stream_count // 0')
 fi
 
-# Overseerr stats
-if [[ -n "$OVERSEERR_API_KEY" && -n "$OVERSEERR_URL" ]]; then
-  echo "  • Overseerr..."
-  OVERSEERR_REQUESTS=$(curl -fsS --connect-timeout 3 --max-time 20 -H "X-Api-Key: $OVERSEERR_API_KEY" "${OVERSEERR_URL}/api/v1/request/count" || echo '{}')
-  OVERSEERR_PENDING=$(echo "$OVERSEERR_REQUESTS" | jq '.pending // 0')
-  OVERSEERR_TOTAL=$(echo "$OVERSEERR_REQUESTS" | jq '.total // 0')
+# Seerr stats
+if [[ -n "$SEERR_API_KEY" && -n "$SEERR_URL" ]]; then
+  echo "  • Seerr..."
+  SEERR_REQUESTS=$(curl -fsS --connect-timeout 3 --max-time 20 -H "X-Api-Key: $SEERR_API_KEY" "${SEERR_URL}/api/v1/request/count" || echo '{}')
+  SEERR_PENDING=$(echo "$SEERR_REQUESTS" | jq '.pending // 0')
+  SEERR_TOTAL=$(echo "$SEERR_REQUESTS" | jq '.total // 0')
 fi
 
 # Prowlarr indexers
@@ -253,7 +253,7 @@ READARR_RT=$(measure_configured_service "$READARR_API_KEY" "${READARR_URL}/api/v
 PLEX_RT=$(measure_configured_service "$PLEX_TOKEN" "${PLEX_URL}/identity" "X-Plex-Token: $PLEX_TOKEN")
 TAUTULLI_RT=$(measure_configured_service "$TAUTULLI_API_KEY" "${TAUTULLI_URL}/api/v2?apikey=${TAUTULLI_API_KEY}&cmd=arnold")
 SABNZBD_RT=$(measure_configured_service "$SABNZBD_API_KEY" "${SABNZBD_URL}/api?mode=version&apikey=${SABNZBD_API_KEY}")
-OVERSEERR_RT=$(measure_configured_service "$OVERSEERR_API_KEY" "${OVERSEERR_URL}/api/v1/status" "X-Api-Key: $OVERSEERR_API_KEY")
+SEERR_RT=$(measure_configured_service "$SEERR_API_KEY" "${SEERR_URL}/api/v1/status" "X-Api-Key: $SEERR_API_KEY")
 PROWLARR_RT=$(measure_configured_service "$PROWLARR_API_KEY" "${PROWLARR_URL}/api/v1/health" "X-Api-Key: $PROWLARR_API_KEY")
 BAZARR_RT=$(measure_configured_service "$BAZARR_API_KEY" "${BAZARR_URL}/api/system/status" "X-Api-Key: $BAZARR_API_KEY")
 
@@ -979,10 +979,10 @@ cat > "$OUTPUT_FILE" << 'HTML_START'
           <div class="service-card">
             <div class="service-icon">📝</div>
             <div class="service-info">
-              <div class="service-name">Overseerr</div>
-              <div class="service-rt">OVERSEERR_RT_PH ms</div>
+              <div class="service-name">Seerr</div>
+              <div class="service-rt">SEERR_RT_PH ms</div>
             </div>
-            <div class="service-status-dot SERVICE_STATUS_OVERSEERR"></div>
+            <div class="service-status-dot SERVICE_STATUS_SEERR"></div>
           </div>
           
           <div class="service-card">
@@ -1230,7 +1230,7 @@ SERVICE_STATUS_READARR=$(status_class "$READARR_RT")
 SERVICE_STATUS_PLEX=$(status_class "$PLEX_RT")
 SERVICE_STATUS_TAUTULLI=$(status_class "$TAUTULLI_RT")
 SERVICE_STATUS_SAB=$(status_class "$SABNZBD_RT")
-SERVICE_STATUS_OVERSEERR=$(status_class "$OVERSEERR_RT")
+SERVICE_STATUS_SEERR=$(status_class "$SEERR_RT")
 SERVICE_STATUS_PROWLARR=$(status_class "$PROWLARR_RT")
 SERVICE_STATUS_BAZARR=$(status_class "$BAZARR_RT")
 
@@ -1303,7 +1303,7 @@ sed -i.bak \
   -e "s|PLEX_RT_PH|$PLEX_RT|g" \
   -e "s|TAUTULLI_RT_PH|$TAUTULLI_RT|g" \
   -e "s|SABNZBD_RT_PH|$SABNZBD_RT|g" \
-  -e "s|OVERSEERR_RT_PH|$OVERSEERR_RT|g" \
+  -e "s|SEERR_RT_PH|$SEERR_RT|g" \
   -e "s|PROWLARR_RT_PH|$PROWLARR_RT|g" \
   -e "s|BAZARR_RT_PH|$BAZARR_RT|g" \
   -e "s|SERVICE_STATUS_SONARR|$SERVICE_STATUS_SONARR|g" \
@@ -1312,7 +1312,7 @@ sed -i.bak \
   -e "s|SERVICE_STATUS_PLEX|$SERVICE_STATUS_PLEX|g" \
   -e "s|SERVICE_STATUS_TAUTULLI|$SERVICE_STATUS_TAUTULLI|g" \
   -e "s|SERVICE_STATUS_SAB|$SERVICE_STATUS_SAB|g" \
-  -e "s|SERVICE_STATUS_OVERSEERR|$SERVICE_STATUS_OVERSEERR|g" \
+  -e "s|SERVICE_STATUS_SEERR|$SERVICE_STATUS_SEERR|g" \
   -e "s|SERVICE_STATUS_PROWLARR|$SERVICE_STATUS_PROWLARR|g" \
   -e "s|SERVICE_STATUS_BAZARR|$SERVICE_STATUS_BAZARR|g" \
   "$OUTPUT_FILE"
